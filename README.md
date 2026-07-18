@@ -50,5 +50,22 @@ what's still open.
 
 ## Status
 
-Early scaffold — concept and design decisions captured, no application code
-yet.
+Working skeleton: Next.js + Payload (Postgres adapter, `payload` schema) +
+Prisma (`app` schema, same instance) + Auth.js v5 with a Microsoft Entra ID
+provider + a pluggable AI-provider abstraction (`lib/ai/provider.ts`) and
+knowledge-provider interface (`lib/knowledge/provider.ts`). `pnpm install`
+and a full `tsc --noEmit` both pass. Not yet built: Payload's admin
+mount-point routes (normally tool-generated, not hand-written — see below),
+the actual admin portal UI, and the RAG implementation behind the knowledge
+interface.
+
+### Getting started
+
+```bash
+cp .env.example .env.local   # fill in DATABASE_URL, AUTH_*, PAYLOAD_SECRET
+pnpm install
+pnpm payload generate:importmap   # generates Payload's admin mount point
+pnpm prisma:generate
+pnpm prisma:migrate
+pnpm dev
+```
