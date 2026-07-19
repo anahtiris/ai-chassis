@@ -37,4 +37,31 @@ describe('POST /api/concierge', () => {
     )
     expect(response.status).toBe(400)
   })
+
+  it('returns 500 JSON for malformed request body', async () => {
+    const request = new NextRequest('http://localhost/api/concierge', {
+      method: 'POST',
+      body: 'not valid json',
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(500)
+    const data = await response.json()
+    expect(data).toEqual({ error: 'Something went wrong' })
+  })
+
+  it('returns 500 JSON when getConciergeResponse throws', async () => {
+    vi.mocked(getConciergeResponse).mockRejectedValue(
+      new Error('RAG misconfigured'),
+    )
+
+    const response = await POST(
+      makeRequest({ sessionId: 'abc', message: 'Hi' }),
+    )
+
+    expect(response.status).toBe(500)
+    const data = await response.json()
+    expect(data).toEqual({ error: 'Something went wrong' })
+  })
 })
