@@ -9,6 +9,11 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: ["**/node_modules/**", "**/.claude/**", "**/dist/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/.claude/**",
+      "**/dist/**",
+      "**/.worktrees/**",
+    ],
   },
 });
