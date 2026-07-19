@@ -11,6 +11,7 @@
 
 import { getVectorizedPayload } from 'payloadcms-vectorize'
 import { getPayloadClient } from '@/lib/payload/client'
+import { lexicalToPlainText } from '@/lib/payload/lexicalToPlainText'
 
 export interface KnowledgeChunk {
   content: string
@@ -22,16 +23,36 @@ export interface KnowledgeProvider {
   getRelevantKnowledge(query: string): Promise<KnowledgeChunk[]>
 }
 
-// Default provider: pulls all content matching a page/category context
-// directly, no embeddings involved. Project-specific — wire this up to
-// whichever Payload collection(s) should feed the concierge.
+// Default provider: pulls all published `pages` content directly, no
+// embeddings involved. Ignores `query` by design — direct injection means
+// "dump everything," matching the class doc comment above (right choice
+// while content volume is small; RagProvider below does relevance
+// filtering instead).
 class DirectInjectionProvider implements KnowledgeProvider {
   async getRelevantKnowledge(_query: string): Promise<KnowledgeChunk[]> {
-    // TODO: query the relevant Payload collection(s) directly and return
-    // their content as chunks. Left unimplemented — this is the toolkit's
-    // scaffold, not a finished feature; each project wires this to its own
-    // content shape.
-    return []
+    const payload = await getPayloadClient()
+    const { docs } = await payload.find({
+      collection: 'pages',
+      where: { _status: { equals: 'published' } },
+      limit: 50,
+      depth: 0,
+    })
+
+    return docs.flatMap((page): KnowledgeChunk[] => {
+      const chunks: KnowledgeChunk[] = []
+      const sourceUrl = `/${page.slug}`
+
+      if (page.title.trim()) {
+        chunks.push({ content: page.title, source: 'pages', sourceUrl })
+      }
+
+      const bodyText = lexicalToPlainText(page.content?.root).trim()
+      if (bodyText) {
+        chunks.push({ content: bodyText, source: 'pages', sourceUrl })
+      }
+
+      return chunks
+    })
   }
 }
 
