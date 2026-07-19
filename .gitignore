@@ -12,3 +12,6 @@ storybook-static
 # Claude Code: personal/machine-specific, not shared team config
 .claude/settings.local.json
 .claude/worktrees/
+
+# Local git worktrees for isolated feature work
+.worktrees/
