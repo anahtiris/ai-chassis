@@ -978,6 +978,45 @@ needed to close the actual gap (accounts that already have a password
 having no way to change it). Can be revisited later if a project wants
 that path.
 
+### Payload's dev-mode schema push can relocate Prisma's migrations table — a second, recurring symptom of the same root cause
+
+Discovered during manual verification of the concierge feature (first live
+navigation to `/admin/cms` on a fresh dev server), distinct from the
+one-time P3005 setup-order trap above ("Prisma's first-migration check
+isn't scoped to the `app` schema") even though both trace back to the same
+root cause: neither ORM's tooling is scoped to its own schema by default.
+
+`@payloadcms/db-postgres` runs `pushDevSchema()` automatically on every
+dev-server connect (`process.env.NODE_ENV !== 'production'`, unless
+`push: false` or `PAYLOAD_MIGRATING=true`) to keep Postgres in sync with
+Payload's collection definitions — this is normal, expected dev-mode
+behavior, not a bug on its own. But `payload.config.ts` deliberately sets
+no `schemaName` on the adapter (see "Known issues" above), so this push's
+schema diff isn't scoped to `public` — it introspects the *entire*
+database. It found Prisma's `app._prisma_migrations` table, didn't
+recognize it as belonging to a schema it manages, flagged it as
+unexpected drift with a DATA LOSS warning, and — after a confirmation
+prompt that a burst of concurrent requests during manual testing appears
+to have raced — relocated it from `app` into `public`.
+
+No rows were lost (confirmed: same 4 migration records, same
+`started_at`/`finished_at` timestamps, before and after), but the table
+ended up in the wrong schema, which would break the next `prisma migrate
+dev` run there (Prisma would see `app` as having no migration history and
+re-trigger the exact "first migration ever" confusion this section
+already documents). Recovered with a plain, non-destructive
+`ALTER TABLE public._prisma_migrations SET SCHEMA app;`.
+
+**Practical mitigation, not yet a permanent fix:** set
+`PAYLOAD_MIGRATING=true` when starting a dev server for any workflow that
+doesn't need Payload's own schema kept in sync (e.g. ad-hoc verification
+of non-Payload code against a database that already has Payload's schema
+applied) — this skips `pushDevSchema()` entirely. For normal `pnpm dev`,
+this isn't a real fix, just a documented hazard: the same permanent fix
+already proposed above (scoping the Postgres role to `GRANT USAGE` on only
+`app`) would prevent Payload's push from ever seeing `app`'s tables in the
+first place, closing this off at the same time as the P3005 trap.
+
 ## Open questions
 
 ### Deferred, lower priority
