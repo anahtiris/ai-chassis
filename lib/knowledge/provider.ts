@@ -6,9 +6,11 @@
 //   - direct injection (default): simplest, cheapest, most deterministic —
 //     right choice while content volume is small.
 //   - RAG (opt-in, RAG_ENABLED=true): embeddings + vector similarity search
-//     via payloadcms-vectorize once content volume outgrows what
-//     comfortably fits in a prompt. Not implemented yet — this is the
-//     interface it plugs into when it is.
+//     via payloadcms-vectorize, querying the "content" knowledge pool
+//     configured in payload.config.ts.
+
+import { getVectorizedPayload } from 'payloadcms-vectorize'
+import { getPayloadClient } from '@/lib/payload/client'
 
 export interface KnowledgeChunk {
   content: string
@@ -33,13 +35,33 @@ class DirectInjectionProvider implements KnowledgeProvider {
   }
 }
 
-// RAG provider: pgvector similarity search via payloadcms-vectorize, once
-// that plugin is installed and configured. Stubbed until then.
+// RAG provider: pgvector similarity search via payloadcms-vectorize against
+// the "content" pool defined in payload.config.ts (fed by the starter
+// `pages` collection — extend both together as content types grow).
 class RagProvider implements KnowledgeProvider {
-  async getRelevantKnowledge(_query: string): Promise<KnowledgeChunk[]> {
-    throw new Error(
-      'RAG_ENABLED is true but the payloadcms-vectorize integration is not wired up yet.',
-    )
+  async getRelevantKnowledge(query: string): Promise<KnowledgeChunk[]> {
+    const payload = await getPayloadClient()
+    const vectorizedPayload = getVectorizedPayload(payload)
+
+    if (!vectorizedPayload) {
+      // Shouldn't happen if RAG_ENABLED matched at config-build time too
+      // (payload.config.ts only registers the plugin when it's true) — but
+      // fail loudly rather than silently returning no knowledge if it does.
+      throw new Error(
+        'RAG_ENABLED is true but payloadcms-vectorize is not registered on this Payload instance — check payload.config.ts was built with RAG_ENABLED=true.',
+      )
+    }
+
+    const results = await vectorizedPayload.search({ query, knowledgePool: 'content', limit: 5 })
+
+    return results.map((result) => {
+      const slug = 'slug' in result && typeof result.slug === 'string' ? result.slug : undefined
+      return {
+        content: result.chunkText,
+        source: result.sourceCollection,
+        sourceUrl: slug ? `/${slug}` : undefined,
+      }
+    })
   }
 }
 

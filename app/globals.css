@@ -1,0 +1,204 @@
+@import url("https://fonts.googleapis.com/css2?family=Gentium+Book+Basic:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Admin + Payload theme — this file is imported by app/admin/layout.tsx
+   (the custom admin portal) and app/(payload)/layout.tsx (Payload's own
+   /admin/cms), so both share one set of tokens/utilities. It is
+   deliberately NOT imported by the root app/layout.tsx anymore — a future
+   public content section gets its own separate CSS file + @theme (see
+   docs/decisions.md "Separate Tailwind themes per section" for the
+   reasoning), rather than inheriting this one.
+
+   Token values below come from a generated brand system (colors, fonts,
+   type scale, shadows, radius) — see docs/decisions.md for the mapping
+   from that generator's output onto shadcn's semantic token names
+   (--primary, --destructive, etc.) that components/ui/* actually consume.
+   Re-theme by editing the values here; components/ui/* never hardcodes a
+   literal color. Tailwind's own default spacing scale (p-*, gap-*, m-*) is
+   deliberately left untouched — only colors/fonts/type/shadow/radius are
+   overridden. */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-heading: "Gentium Book Basic", sans-serif;
+  --font-body: "Inter", sans-serif;
+
+  --color-primary-50: #f9f5f5;
+  --color-primary-100: #f6eaea;
+  --color-primary-200: #edc9c9;
+  --color-primary-300: #e79393;
+  --color-primary-400: #e54343;
+  --color-primary-500: #d31212;
+  --color-primary-600: #a11212;
+  --color-primary-700: #791111;
+  --color-primary-800: #580e0e;
+  --color-primary-900: #3a0d0d;
+  --color-primary-950: #240a0a;
+
+  --color-secondary-50: #f7f9f5;
+  --color-secondary-100: #f0f6ea;
+  --color-secondary-200: #dbedc9;
+  --color-secondary-300: #bde793;
+  --color-secondary-400: #94e543;
+  --color-secondary-500: #73d312;
+  --color-secondary-600: #59a112;
+  --color-secondary-700: #457911;
+  --color-secondary-800: #33580e;
+  --color-secondary-900: #243a0d;
+  --color-secondary-950: #17240a;
+
+  --color-accent-50: #f5f9f9;
+  --color-accent-100: #eaf6f6;
+  --color-accent-200: #c9eded;
+  --color-accent-300: #93e7e7;
+  --color-accent-400: #43e5e5;
+  --color-accent-500: #12d3d3;
+  --color-accent-600: #12a1a1;
+  --color-accent-700: #117979;
+  --color-accent-800: #0e5858;
+  --color-accent-900: #0d3a3a;
+  --color-accent-950: #0a2424;
+
+  --color-neutral-50: #f7f7f8;
+  --color-neutral-100: #efeff1;
+  --color-neutral-200: #d8dbdf;
+  --color-neutral-300: #b5bbc5;
+  --color-neutral-400: #8491a4;
+  --color-neutral-500: #606f85;
+  --color-neutral-600: #4b5767;
+  --color-neutral-700: #3b434f;
+  --color-neutral-800: #2c323a;
+  --color-neutral-900: #1f2328;
+  --color-neutral-950: #151719;
+
+  --color-success: #20ac5f;
+  --color-warning: #f0a205;
+  --color-error: #ea2e44;
+  --color-info: #0fb4e6;
+
+  --text-xs: 0.720rem;
+  --text-xs--line-height: 1.125rem;
+  --text-xs--letter-spacing: 0.025em;
+  --text-sm: 0.900rem;
+  --text-sm--line-height: 1.375rem;
+  --text-sm--letter-spacing: 0.025em;
+  --text-base: 1.125rem;
+  --text-base--line-height: 1.75rem;
+  --text-base--letter-spacing: 0em;
+  --text-lg: 1.406rem;
+  --text-lg--line-height: 1.875rem;
+  --text-lg--letter-spacing: -0.01em;
+  --text-xl: 1.758rem;
+  --text-xl--line-height: 2rem;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl: 2.197rem;
+  --text-2xl--line-height: 2.25rem;
+  --text-2xl--letter-spacing: -0.02em;
+  --text-3xl: 2.747rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-3xl--letter-spacing: -0.02em;
+  --text-4xl: 3.433rem;
+  --text-4xl--line-height: 2.75rem;
+  --text-4xl--letter-spacing: -0.04em;
+  --text-5xl: 4.292rem;
+  --text-5xl--line-height: 1;
+  --text-5xl--letter-spacing: -0.04em;
+  --text-6xl: 5.364rem;
+  --text-6xl--line-height: 1;
+  --text-6xl--letter-spacing: -0.04em;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+
+  --radius-sm: 0.5rem;
+  --radius: 0.75rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-full: 9999px;
+}
+
+:root {
+  --background: var(--color-neutral-50);
+  --foreground: var(--color-neutral-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-neutral-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-neutral-900);
+  --primary: var(--color-primary-500);
+  --primary-foreground: var(--color-neutral-50);
+  --secondary: var(--color-secondary-500);
+  --secondary-foreground: var(--color-neutral-900);
+  --muted: var(--color-neutral-100);
+  --muted-foreground: var(--color-neutral-500);
+  --accent: var(--color-accent-500);
+  --accent-foreground: var(--color-neutral-900);
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-neutral-50);
+  --border: var(--color-neutral-200);
+  --input: var(--color-neutral-200);
+  --ring: var(--color-primary-500);
+}
+
+.dark {
+  --background: var(--color-neutral-950);
+  --foreground: var(--color-neutral-50);
+  --card: var(--color-neutral-900);
+  --card-foreground: var(--color-neutral-50);
+  --popover: var(--color-neutral-900);
+  --popover-foreground: var(--color-neutral-50);
+  --primary: var(--color-primary-400);
+  --primary-foreground: var(--color-neutral-950);
+  --secondary: var(--color-secondary-400);
+  --secondary-foreground: var(--color-neutral-950);
+  --muted: var(--color-neutral-800);
+  --muted-foreground: var(--color-neutral-400);
+  --accent: var(--color-accent-400);
+  --accent-foreground: var(--color-neutral-950);
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-neutral-50);
+  --border: color-mix(in oklab, var(--color-neutral-50) 10%, transparent);
+  --input: color-mix(in oklab, var(--color-neutral-50) 15%, transparent);
+  --ring: var(--color-primary-400);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}

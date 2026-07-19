@@ -1,5 +1,5 @@
-import { openai } from '@ai-sdk/openai'
-import type { LanguageModel } from 'ai'
+import { openai } from "@ai-sdk/openai";
+import type { LanguageModel } from "ai";
 
 // Pluggable AI provider — see docs/decisions.md "AI provider abstraction:
 // pluggable". The original project this toolkit generalized from was
@@ -8,13 +8,16 @@ import type { LanguageModel } from 'ai'
 //
 // Add a provider by installing its @ai-sdk/* package and a case below —
 // nothing that calls getModel() needs to change.
-export function getModel(): LanguageModel {
-  const provider = process.env.AI_PROVIDER ?? 'openai'
+//
+// modelName lets a caller override the default (e.g. from a per-prompt
+// AiPromptConfig.model value); omit it to use the provider's default.
+export function getModel(modelName?: string): LanguageModel {
+  const provider = process.env.AI_PROVIDER ?? "openai";
 
   switch (provider) {
-    case 'openai':
-      return openai('gpt-4o')
+    case "openai":
+      return openai(modelName ?? "gpt-4o");
     default:
-      throw new Error(`Unknown AI_PROVIDER: ${provider}`)
+      throw new Error(`Unknown AI_PROVIDER: ${provider}`);
   }
 }

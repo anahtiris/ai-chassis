@@ -7,3 +7,8 @@ dist
 build
 *.tsbuildinfo
 .DS_Store
+storybook-static
+
+# Claude Code: personal/machine-specific, not shared team config
+.claude/settings.local.json
+.claude/worktrees/
