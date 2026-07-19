@@ -22,6 +22,7 @@ import { createRevalidateHooks } from '@/lib/payload/hooks/revalidateCollection'
 import { bridgeFormSubmissionToPrisma } from '@/lib/payload/hooks/bridgeFormSubmission'
 import { searchFields } from '@/lib/payload/search/fieldOverrides'
 import { beforeSyncWithSearch } from '@/lib/payload/search/beforeSync'
+import { lexicalToPlainText } from '@/lib/payload/lexicalToPlainText'
 import type { Page, Post } from '@/payload-types'
 
 // CMS-managed content only — see docs/decisions.md "Admin portal scope" and
@@ -59,19 +60,6 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
 // calling revalidateTag('redirects', 'max') directly) — one generic
 // mechanism instead of a parallel copy.
 const { afterChange: revalidateRedirectsAfterChange } = createRevalidateHooks('redirects')
-
-// Minimal Lexical-JSON-to-plain-text walker — good enough for embedding
-// purposes (semantic search doesn't need formatting preserved). Swap for a
-// richer chunker (see payloadcms-vectorize's dev/helpers/chunkers.ts for a
-// reference implementation) if a project wants heading- or paragraph-aware
-// chunks instead of one chunk per field.
-function lexicalToPlainText(node: unknown): string {
-  if (!node || typeof node !== 'object') return ''
-  const { text, children } = node as { text?: unknown; children?: unknown[] }
-  const own = typeof text === 'string' ? text : ''
-  const nested = Array.isArray(children) ? children.map(lexicalToPlainText).join(' ') : ''
-  return [own, nested].filter(Boolean).join(' ')
-}
 
 // Feeds the starter `pages` collection into the "content" knowledge pool —
 // see lib/knowledge/provider.ts's RagProvider, which queries this pool by
