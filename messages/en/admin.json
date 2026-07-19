@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users & Permissions",
+    "auditLogs": "Audit Log",
+    "formResults": "Form Results",
+    "aiPrompts": "AI Prompts",
+    "aiConversations": "AI Conversations",
+    "analytics": "Analytics",
+    "content": "Content",
+    "administration": "Administration"
+  },
+  "hub": {
+    "eyebrow": "Admin",
+    "heading": "Control",
+    "headingAccent": "Center",
+    "greeting": "Signed in as",
+    "cards": {
+      "administration": {
+        "title": "Administration",
+        "description": "Users, audit log, AI prompts, analytics and more."
+      },
+      "cms": {
+        "title": "CMS",
+        "description": "Content management system."
+      },
+      "storybook": {
+        "title": "Storybook",
+        "description": "UI component showcase."
+      },
+      "openapi": {
+        "title": "API Docs",
+        "description": "Interactive OpenAPI reference for the business API."
+      },
+      "settings": {
+        "title": "Settings",
+        "description": "Change your account password."
+      }
+    }
+  },
+  "settings": {
+    "heading": "Account settings",
+    "backToHub": "Back to hub",
+    "changePassword": {
+      "title": "Change password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "submit": "Update password",
+      "ssoNotice": "You sign in via Microsoft Entra ID — there's no local password to change here.",
+      "success": "Password updated.",
+      "errorIncorrect": "Current password is incorrect.",
+      "errorMismatch": "New password and confirmation don't match.",
+      "errorTooShort": "New password must be at least 8 characters."
+    }
+  },
+  "buttons": {
+    "signOut": "Sign out"
+  }
+}

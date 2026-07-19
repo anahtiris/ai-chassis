@@ -26,6 +26,17 @@ model User {
   id            String           @id @default(uuid())
   email         String           @unique
   name          String?
+  // Only set for users who log in via the Credentials provider (the
+  // default admin login — see auth.ts and docs/decisions.md). Null for
+  // users who only ever authenticate via an external provider like Entra
+  // ID. Hashed with bcrypt — never store plaintext, never compare directly.
+  password_hash String?
+  // True only for whichever user account gets created first — see auth.ts's
+  // signIn callback and docs/decisions.md "Bootstrap: first user is owner".
+  // Bypasses the UserPermission table entirely (lib/auth/permissions.ts);
+  // this toolkit doesn't hardcode a fixed role/permission set, so "grant
+  // every permission" isn't expressible as rows — a coarse owner bypass is.
+  is_owner      Boolean          @default(false)
   created_at    DateTime         @default(now())
   archived_at   DateTime?
   permissions   UserPermission[]
@@ -92,6 +103,11 @@ model AiPromptConfig {
   id          String   @id @default(uuid())
   key         String   @unique
   prompt_text String
+  // Nullable generation overrides — null means "fall back to the
+  // AI_PROVIDER-driven default in lib/ai/provider.ts", not zero.
+  model       String?
+  temperature Float?
+  max_tokens  Int?
   version     Int      @default(1)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
@@ -107,5 +123,27 @@ model AiConversation {
   created_at   DateTime @default(now())
 
   @@map("ai_conversations")
+  @@schema("app")
+}
+
+// Written only by app/api/cron/analytics/route.ts, read only by
+// app/admin/analytics/page.tsx — never the reverse. See docs/decisions.md
+// "Analytics: nightly snapshot job, dashboard never reads live tables."
+// Generic (metric_key, value) shape rather than fixed columns, matching
+// UserPermission's "no fixed enum" precedent — this toolkit only knows
+// about its own domain-agnostic tables; a project's own business metrics
+// get added as more metric_key values, not more models.
+model AnalyticsSnapshot {
+  id            String   @id @default(uuid())
+  // Always the UTC-midnight Date for the calendar day this snapshot
+  // represents, in whatever timezone ANALYTICS_TIMEZONE is configured to —
+  // see the cron route for how that conversion happens.
+  snapshot_date DateTime
+  metric_key    String
+  value         Float
+  created_at    DateTime @default(now())
+
+  @@unique([snapshot_date, metric_key])
+  @@map("analytics_snapshots")
   @@schema("app")
 }

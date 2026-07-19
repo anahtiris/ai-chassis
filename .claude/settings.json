@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(~/.ssh/**)"
+    ],
+    "allow": ["Bash(pnpm lint)", "Bash(pnpm test*)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/block-env.sh" }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/danger-guard.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/format.sh" }]
+      }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": ".claude/hooks/run-tests.sh" }] }
+    ]
+  }
+}

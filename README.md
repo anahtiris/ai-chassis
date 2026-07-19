@@ -50,22 +50,263 @@ what's still open.
 
 ## Status
 
-Working skeleton: Next.js + Payload (Postgres adapter, `payload` schema) +
-Prisma (`app` schema, same instance) + Auth.js v5 with a Microsoft Entra ID
-provider + a pluggable AI-provider abstraction (`lib/ai/provider.ts`) and
-knowledge-provider interface (`lib/knowledge/provider.ts`). `pnpm install`
-and a full `tsc --noEmit` both pass. Not yet built: Payload's admin
-mount-point routes (normally tool-generated, not hand-written — see below),
-the actual admin portal UI, and the RAG implementation behind the knowledge
-interface.
+Boots end to end: `pnpm dev` serves Payload's admin at `/admin/cms`,
+confirmed working against a real local Postgres. Next.js + Payload
+(Postgres adapter, `public` schema) + Prisma (`app` schema, same instance)
+
+- Auth.js v5, with Credentials (username/password) as the default admin
+  login and Microsoft Entra ID as an optional second provider, plus a
+  pluggable AI-provider abstraction (`lib/ai/provider.ts`) and
+  knowledge-provider interface (`lib/knowledge/provider.ts`). `/admin/login`
+  exists and `proxy.ts` correctly redirects unauthenticated `/admin/*`
+  requests to it. `pnpm install` and a full `tsc --noEmit` both pass.
+
+The first user to ever sign in (via either provider) against an empty
+database is auto-provisioned as owner, bypassing the permission system
+entirely; everyone after that needs a `User` row to already exist. See
+`docs/decisions.md` "Bootstrap: first user is owner." Both providers have
+been tested end to end against a real Azure AD app registration and a real
+local Postgres. `/admin/users` (owner-only) lists users, has an "Add user"
+form (email + required password — an Entra ID-only account has no local
+password, and making it optional here just produced accounts that couldn't
+sign in by either path if Entra ID wasn't configured), and grants/revokes
+`UserPermission` rows, writing an `AuditLog` entry on each change.
+`pnpm seed:admin` was also fixed — it failed under `tsx` with `bcryptjs does
+not provide an export named 'hash'` (its CJS entry re-exports indirectly,
+which `cjs-module-lexer` can't statically see through); switched to a
+default import in that script only. See `docs/decisions.md` "Create-user UI
+
+- `seed:admin` bcryptjs fix."
+  `/admin/audit-logs` reads those entries back — gated by an
+  `AUDIT_LOG_ACCESS` permission string, the first real (non-owner-bypass) use
+  of `lib/auth/permissions.ts`'s `hasPermission()`. `/admin/form-results`
+  follows the same read-only, permission-gated shape over `FormSubmission`
+  (`FORM_RESULTS_ACCESS`). `/admin/ai/prompts` (create/edit `AiPromptConfig`,
+  version as a running counter) and `/admin/ai/conversations` (read-only
+  review of `AiConversation`) share an `AI_MANAGEMENT` permission.
+
+`/admin/analytics` (gated by `ANALYTICS_ACCESS`) rounds out every
+domain-agnostic admin page from "Admin portal scope" — it reads only from
+`AnalyticsSnapshot`, populated by the nightly `/api/cron/analytics` job (see
+`vercel.json` for the schedule, `docs/decisions.md` "Analytics" for why the
+dashboard never touches live tables directly).
+
+RAG is implemented behind `lib/knowledge/provider.ts`'s `RagProvider`
+(`payloadcms-vectorize` + pgvector, opt-in via `RAG_ENABLED=true`) — see
+"RAG (opt-in)" below. It's built and typechecks against the real published
+package, but has not been run end to end against a live Postgres with
+pgvector installed, and there's no concierge chat endpoint in this toolkit
+yet to actually call it — see `docs/decisions.md`'s "Now implemented" note
+under "RAG implementation" for the specific caveats.
+
+Storybook is set up (`@storybook/nextjs-vite`, confirmed with both `pnpm
+storybook` and `pnpm build-storybook` against this project's actual files —
+see `docs/decisions.md` "UI components: Storybook, not a kitchen-sink page"
+for why the Vite-based framework specifically) and now has real stories:
+`stories/ui/*.stories.tsx` covers every `components/ui/*` primitive with
+several variant/state stories each. Along the way, found that
+`.storybook/preview.tsx` never actually imported `app/globals.css`, so every
+story was rendering unstyled — fixed, see `docs/decisions.md` "Component
+stories for the UI kit."
+
+Tailwind v4 + a shadcn/ui-style component kit is installed
+(`components/ui/`: Button, Card, Badge, Input, Label, Textarea, Table,
+Checkbox, Tag, Popover, and a custom searchable `Dropdown`), de-branded from
+the original project's POC — see `docs/decisions.md` "UI components: ported
+from the POC, de-branded" for the full story, including why it was
+hand-written rather than CLI-generated (`ui.shadcn.com` is unreachable from
+the sandbox this was built in) and what that means for confidence in it.
+Verified via a real `pnpm build` (Turbopack compiled successfully). Wired
+into all six admin pages under `app/admin/(shell)/` — none are inline-styled
+scaffolding anymore. Not done yet: component stories, and a real AI chat UI
+(the POC's version was a scripted mock, not something to port as-is).
+
+`AdminShell` (`components/admin/AdminShell.tsx`) — a fixed sidebar + top
+navbar, simplified from the POC's collapsible/mobile-nav version — wraps
+every admin page except the `/admin` hub landing and `/admin/login`, via a
+route group (`app/admin/(shell)/`) rather than a pathname check. Nav items
+and hub cards are permission-gated server-side (`hasPermission()`) before
+either component ever renders. A small namespace-catalog i18n helper
+(`lib/i18n.ts` + `messages/en/*.json`) drives all of the labels — kept from
+the POC as reusable infrastructure, repopulated with this toolkit's own
+strings (no Blackatz copy carried over). `app/admin/page.tsx` is the header
+
+- card-grid hub landing linking out to whichever sections the signed-in
+  user has access to. See `docs/decisions.md` "AdminShell: sidebar + navbar,
+  nothing more" for the full reasoning. Verified via `pnpm typecheck` (only
+  the known pre-existing Prisma-client error signature, nothing new) and a
+  `pnpm build` Turbopack compile pass.
+
+A generated brand theme (color scales, fonts, type scale, shadows, radius)
+is now wired into `app/globals.css`'s `@theme`, and Tailwind is split per
+section rather than loaded globally: the true root `app/layout.tsx` imports
+no CSS at all, while `app/admin/layout.tsx` and `app/(payload)/layout.tsx`
+both import `app/globals.css`, so the custom admin portal and Payload's own
+`/admin/cms` share one theme (same file, not duplicated). A future public
+content section is expected to get its own separate CSS file and `@theme`
+the same way. See `docs/decisions.md` "Separate Tailwind themes per
+section" for the full reasoning, including a pre-existing, unrelated
+hydration quirk this surfaced (Payload's `RootLayout` nests its own
+`<html>`/`<body>` inside the app's root layout — flagged, not yet fixed).
+Verified via `pnpm typecheck`, `pnpm build`, and visually in Storybook
+(primary/destructive buttons render as genuinely different reds, not the
+same color).
+
+A later theme regeneration changed color/type-scale/shadow/radius values
+again and raised the base font size to 18px — the whole type scale was
+recomputed at the same ~1.25 ratio anchored on the new base, not just the
+`base` step in isolation, so it stays a coherent progression. It also
+surfaced that `/admin/cms` still rendered on a dark background: Payload's
+own admin UI (`@payloadcms/ui`) uses a completely separate CSS variable
+system (`--theme-elevation-*`, switched via `html[data-theme]`), untouched
+by `app/globals.css`'s tokens — `payload.config.ts`'s `admin.theme` had
+never been set, so it defaulted to Payload's own `'all'` (follow OS
+preference). Pinned to `'light'`. Note this only fixes light-vs-dark
+consistency, not brand-color alignment — Payload's native chrome still uses
+its own palette. `/admin/login` (previously the original inline-styled
+scaffold) was also rebuilt with the same `Card`/`Input`/`Label`/`Button`
+components used elsewhere in the admin portal. See `docs/decisions.md`
+"Payload's own admin theme is a separate system," "Type scale re-anchored,"
+and "`/admin/login` restyled."
+
+### RAG (opt-in)
+
+Direct content injection is the default knowledge provider and needs none
+of this. To turn RAG on:
+
+1. Install the Postgres `vector` extension (not just enable it in SQL — the
+   extension binary itself has to exist on the Postgres server). On
+   Homebrew Postgres: `brew install pgvector`, then restart Postgres.
+2. Set `RAG_ENABLED=true` and a real `OPENAI_API_KEY` in `.env.local`
+   (embeddings reuse `AI_PROVIDER`, same as the chat model).
+3. Run Payload's own migration system for the first time (separate from
+   `pnpm prisma:migrate` — this only affects Payload's `public`-schema
+   tables):
+   ```
+   pnpm payload:migrate:create --name enable_vectorize
+   pnpm payload:migrate
+   ```
+4. `pnpm dev`, add content in `/admin/cms`'s `pages` collection, then check
+   the `payload-jobs` collection there to confirm embedding jobs are
+   actually draining (see the caveat above — this isn't guaranteed yet
+   without a caller in the loop).
+
+### Single sign-on between the admin portal and Payload
+
+`/admin/cms` (Payload) authenticates from the same Auth.js session cookie
+`/admin/*` uses — sign in once at `/admin/login` (Credentials or Entra ID)
+and `/admin/cms` picks up the same identity automatically, no separate
+Payload password and no create-first-user screen. See `lib/payload/
+authStrategy.ts` and `docs/decisions.md` "Single sign-on: bridge Payload's
+admin auth to Auth.js" for how, and why it's `next-auth/jwt`'s `getToken()`
+rather than hand-parsing the cookie.
+
+If you already had a Payload migration from before this was wired in,
+generate and apply a follow-up one (the `users` collection's shape
+changed — no more password columns):
+
+```
+pnpm payload:migrate:create
+pnpm payload:migrate
+```
+
+### Hub, dashboard, and API docs
+
+`/admin` is five cards — Administration, CMS, Storybook, API Docs, Settings
+— all visible to any signed-in admin, no per-card permission gate (this
+replaced an earlier version with one card per admin section; see
+`docs/decisions.md` "Hub simplification"). Settings (`/admin/settings`)
+is personal-account settings, not an admin area — currently just
+change-password, and only for accounts with a local password already set
+(`password_hash` non-null); Entra ID-only accounts see an explanatory
+message instead of a form. See `docs/decisions.md` "Change-password
+settings page." Administration opens `/admin/dashboard`, a minimal
+landing page — `AdminShell`'s sidebar is the real navigation from there.
+Storybook is a separate process (`pnpm storybook`), so that card is an
+external link (`NEXT_PUBLIC_STORYBOOK_URL`, defaults to
+`http://localhost:6006`). API Docs (`/admin/api-docs`) renders
+`swagger-ui-dist` against `/api/openapi.json`, backed by `lib/openapi/
+spec.ts` — a genuine starter (empty `paths`), not the POC's Blackatz-specific
+API document; add entries there as this project grows its own `/api/v1/**`
+routes.
+
+Payload's own logout (`/admin/cms`) now just links back to `/admin` instead
+of Payload's default behavior, which didn't do anything meaningful once
+`/admin/cms` authenticates via the Auth.js session bridge above.
+
+### Content: Pages, Posts, Categories, Media
+
+Four collections in `/admin/cms`, all generic CMS infrastructure — no
+business-specific page-builder blocks (see `docs/decisions.md` "Collections:
+generic infrastructure only" for what was deliberately left out and why).
+Pages and Posts both get SEO fields, versioned drafts, and an AI Concierge
+question override (site-wide defaults live in the `aiConcierge` global,
+per-document overrides seed from those defaults on creation — see
+`lib/payload/concierge/`). Live preview isn't wired up — it needs a public
+content route this toolkit doesn't have yet.
+
+If you already ran a Payload migration before this, generate and apply a
+follow-up one:
+
+```
+pnpm payload:migrate:create
+pnpm payload:migrate
+```
+
+### Redirects, nested categories, search, and forms
+
+Four more official Payload plugins, all registered in `payload.config.ts`:
+`redirectsPlugin` (a `redirects` collection pointing at `pages`/`posts`),
+`nestedDocsPlugin` (parent/breadcrumbs on `Categories`), `searchPlugin` (a
+search-index mirror over `Posts`, `lib/payload/search/`), and
+`formBuilderPlugin` (visual form builder, payment fields disabled).
+
+Form-builder ships its own `form-submissions` collection — rather than
+leaving that as a second, disconnected place submissions land alongside the
+existing Prisma `FormSubmission` model (`/admin/form-results`),
+`lib/payload/hooks/bridgeFormSubmission.ts` mirrors every submission into
+that same table on create. `/admin/form-results` stays the one place to
+check, regardless of which system captured a submission. See
+`docs/decisions.md` "Four more Payload plugins" for the full reasoning.
 
 ### Getting started
 
+Create the database and Prisma's `app` schema first (Payload uses Postgres's
+default `public` schema — see `docs/decisions.md` "Known issues" for why we
+don't fight that with a custom schema name):
+
 ```bash
-cp .env.example .env.local   # fill in DATABASE_URL, AUTH_*, PAYLOAD_SECRET
+createdb ai_chassis_dev
+psql ai_chassis_dev -c "CREATE SCHEMA IF NOT EXISTS app;"
+```
+
+Then, in this exact order — **`prisma:migrate` must run before any Payload
+command touches this database**, or Prisma's first-migration "is this
+database empty" check gets tripped by Payload's tables in `public` and
+fails with P3005. This only matters for the very first migration ever; once
+Prisma has migration history, order stops mattering. See `docs/decisions.md`
+for the full explanation.
+
+```bash
+cp .env.example .env.local   # fill in DATABASE_URL, AUTH_SECRET, PAYLOAD_SECRET
+cp .env.local .env           # Prisma's CLI only reads .env, not .env.local
 pnpm install
-pnpm payload generate:importmap   # generates Payload's admin mount point
 pnpm prisma:generate
 pnpm prisma:migrate
+pnpm payload generate:importmap   # generates Payload's admin mount point
+pnpm seed:admin you@example.com 'a-real-password'   # first admin login
 pnpm dev
+```
+
+Then sign in at `/admin/login` with whatever email/password you just
+seeded. Microsoft Entra ID is optional — only fill in
+`AUTH_MICROSOFT_ENTRA_ID_*` if a project actually needs it.
+
+If you're pulling in the `AnalyticsSnapshot` model added after your first
+migration, run `pnpm prisma:migrate` again to pick it up, then trigger the
+nightly job manually to see data on `/admin/analytics` (Vercel Cron only
+fires on an actual Vercel deployment):
+
+```
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:4000/api/cron/analytics
 ```
