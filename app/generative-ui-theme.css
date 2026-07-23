@@ -1,0 +1,32 @@
+/**
+ * Vendored copy of generative-ui-kit's theme.css (packages/generative-ui-kit/theme.css).
+ * Turbopack cannot resolve "generative-ui-kit/theme.css" through the pnpm
+ * symlink because the package lives in a separate sibling repo, not a
+ * monorepo package — it panics with "leaves the filesystem root". Copied
+ * here instead of importing across the symlink; re-copy manually if the
+ * kit's theme.css changes.
+ *
+ * The dark-mode @media block from the original is deliberately omitted:
+ * it responds to prefers-color-scheme, but app/(app)/admin's own dark mode
+ * is a .dark class toggle, not media-query-driven, and this demo route
+ * applies neither — under an OS-level dark preference the two would
+ * disagree (white --gui-text on this route's light background). Pin light
+ * only, since this is a throwaway test page with no dark-mode toggle.
+ */
+
+:root {
+  --gui-bg: #ffffff;
+  --gui-bg-subtle: #f9fafb;
+  --gui-bg-hover: #f3f4f6;
+  --gui-border: #d1d5db;
+  --gui-border-subtle: #e5e7eb;
+  --gui-text: #000000;
+  --gui-text-muted: #6b7280;
+  --gui-accent-bg: #000000;
+  --gui-accent-text: #ffffff;
+  --gui-error: #ef4444;
+  --gui-success: #16a34a;
+  --gui-radius: 0.5rem;
+  --gui-chart-1: #3b82f6;
+  --gui-chart-2: #3b82f6;
+}

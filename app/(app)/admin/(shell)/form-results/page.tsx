@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 // Gated by FORM_RESULTS_ACCESS — same free-text-permission convention as
-// AUDIT_LOG_ACCESS (see app/admin/(shell)/audit-logs/page.tsx). Read-only by
+// AUDIT_LOG_ACCESS (see app/(app)/admin/(shell)/audit-logs/page.tsx). Read-only by
 // design: what happens after a submission is captured (a lead pipeline,
 // notifications, CRM sync, etc.) is project-specific and deliberately not
 // part of this toolkit — see docs/decisions.md "FormSubmission" comment in

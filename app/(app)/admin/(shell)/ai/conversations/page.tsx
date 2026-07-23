@@ -5,7 +5,7 @@ import { hasPermission } from '@/lib/auth/permissions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Gated by AI_MANAGEMENT — same permission as
-// app/admin/(shell)/ai/prompts/page.tsx. Read-only: reviewing what the
+// app/(app)/admin/(shell)/ai/prompts/page.tsx. Read-only: reviewing what the
 // concierge said, not editing history.
 export default async function AiConversationsPage() {
   const session = await auth()

@@ -1,4 +1,5 @@
 import { openai } from "@ai-sdk/openai";
+import { ollama } from "ollama-ai-provider";
 import type { LanguageModel } from "ai";
 
 // Pluggable AI provider — see docs/decisions.md "AI provider abstraction:
@@ -17,6 +18,8 @@ export function getModel(modelName?: string): LanguageModel {
   switch (provider) {
     case "openai":
       return openai(modelName ?? "gpt-4o");
+    case "ollama":
+      return ollama(modelName ?? process.env.OLLAMA_MODEL ?? "gemma4:latest");
     default:
       throw new Error(`Unknown AI_PROVIDER: ${provider}`);
   }

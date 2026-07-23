@@ -1,24 +1,24 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig } from "payload";
 import {
   FixedToolbarFeature,
   HeadingFeature,
   HorizontalRuleFeature,
   InlineToolbarFeature,
   lexicalEditor,
-} from '@payloadcms/richtext-lexical'
-import { slugField } from 'payload'
+} from "@payloadcms/richtext-lexical";
+import { slugField } from "payload";
 import {
   MetaDescriptionField,
   MetaImageField,
   MetaTitleField,
   OverviewField,
   PreviewField,
-} from '@payloadcms/plugin-seo/fields'
-import { authenticated, authenticatedOrPublished } from '../access'
-import { populatePublishedAt } from '../hooks/populatePublishedAt'
-import { populateAuthors } from '../hooks/populateAuthors'
-import { createRevalidateHooks } from '../hooks/revalidateCollection'
-import { defaultPageConciergeQuestions } from '../concierge/defaultPageQuestions'
+} from "@payloadcms/plugin-seo/fields";
+import { authenticated, authenticatedOrPublished } from "../access";
+import { populatePublishedAt } from "../hooks/populatePublishedAt";
+import { populateAuthors } from "../hooks/populateAuthors";
+import { createRevalidateHooks } from "../hooks/revalidateCollection";
+import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggestions";
 
 // Blog/article collection: title + hero image + rich text + categories +
 // authors, versioned drafts, SEO fields, AI Concierge question override.
@@ -27,11 +27,13 @@ import { defaultPageConciergeQuestions } from '../concierge/defaultPageQuestions
 // `/industries/<category>/<slug>` URL structure; that's business-specific
 // routing this toolkit doesn't have an opinion on, so it's gone — a fork
 // decides its own post URL shape when it builds a public route.
-const { afterChange: revalidateAfterChange, afterDelete: revalidateAfterDelete } =
-  createRevalidateHooks('posts')
+const {
+  afterChange: revalidateAfterChange,
+  afterDelete: revalidateAfterDelete,
+} = createRevalidateHooks("posts");
 
-export const Posts: CollectionConfig<'posts'> = {
-  slug: 'posts',
+export const Posts: CollectionConfig<"posts"> = {
+  slug: "posts",
   access: {
     create: authenticated,
     delete: authenticated,
@@ -45,25 +47,27 @@ export const Posts: CollectionConfig<'posts'> = {
     meta: { image: true, description: true },
   },
   admin: {
-    defaultColumns: ['title', 'slug', 'updatedAt'],
-    useAsTitle: 'title',
+    defaultColumns: ["title", "slug", "updatedAt"],
+    useAsTitle: "title",
   },
   fields: [
-    { name: 'title', type: 'text', required: true },
+    { name: "title", type: "text", required: true },
     {
-      type: 'tabs',
+      type: "tabs",
       tabs: [
         {
-          label: 'Content',
+          label: "Content",
           fields: [
-            { name: 'heroImage', type: 'upload', relationTo: 'media' },
+            { name: "heroImage", type: "upload", relationTo: "media" },
             {
-              name: 'content',
-              type: 'richText',
+              name: "content",
+              type: "richText",
               editor: lexicalEditor({
                 features: ({ rootFeatures }) => [
                   ...rootFeatures,
-                  HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
+                  HeadingFeature({
+                    enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
+                  }),
                   FixedToolbarFeature(),
                   InlineToolbarFeature(),
                   HorizontalRuleFeature(),
@@ -75,64 +79,83 @@ export const Posts: CollectionConfig<'posts'> = {
           ],
         },
         {
-          label: 'Meta',
+          label: "Meta",
           fields: [
             {
-              name: 'relatedPosts',
-              type: 'relationship',
-              admin: { position: 'sidebar' },
+              name: "relatedPosts",
+              type: "relationship",
+              admin: { position: "sidebar" },
               filterOptions: ({ id }) => ({ id: { not_in: [id] } }),
               hasMany: true,
-              relationTo: 'posts',
+              relationTo: "posts",
             },
             {
-              name: 'categories',
-              type: 'relationship',
-              admin: { position: 'sidebar' },
+              name: "categories",
+              type: "relationship",
+              admin: { position: "sidebar" },
               hasMany: true,
-              relationTo: 'categories',
+              relationTo: "categories",
             },
           ],
         },
         {
-          name: 'meta',
-          label: 'SEO',
+          name: "meta",
+          label: "SEO",
           fields: [
             OverviewField({
-              titlePath: 'meta.title',
-              descriptionPath: 'meta.description',
-              imagePath: 'meta.image',
+              titlePath: "meta.title",
+              descriptionPath: "meta.description",
+              imagePath: "meta.image",
             }),
             MetaTitleField({ hasGenerateFn: true }),
-            MetaImageField({ relationTo: 'media' }),
+            MetaImageField({ relationTo: "media" }),
             MetaDescriptionField({}),
             PreviewField({
               hasGenerateFn: true,
-              titlePath: 'meta.title',
-              descriptionPath: 'meta.description',
+              titlePath: "meta.title",
+              descriptionPath: "meta.description",
             }),
           ],
         },
         {
-          name: 'aiConcierge',
-          label: 'AI Concierge',
+          name: "aiConcierge",
+          label: "AI Concierge",
           fields: [
             {
-              name: 'enabled',
-              type: 'checkbox',
+              name: "enabled",
+              type: "checkbox",
               defaultValue: true,
-              label: 'Enable AI Concierge on this page',
+              label: "Enable AI Concierge on this page",
             },
             {
-              name: 'questions',
-              type: 'array',
+              name: "suggestions",
+              type: "array",
               minRows: 0,
-              label: 'Questions for this page',
-              labels: { singular: 'Question', plural: 'Questions' },
-              defaultValue: defaultPageConciergeQuestions,
+              label: "Suggestions for this page",
+              labels: { singular: "Suggestion", plural: "Suggestions" },
+              defaultValue: defaultPageConciergeSuggestions,
               fields: [
-                { name: 'question', type: 'text', required: true },
-                { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show this question' },
+                {
+                  name: "label",
+                  type: "text",
+                  required: true,
+                  label: "Chip label",
+                },
+                {
+                  name: "sampleMessage",
+                  type: "text",
+                  label: "Message sent (optional)",
+                  admin: {
+                    description:
+                      "Sent to the concierge on click. Leave blank to send the label itself.",
+                  },
+                },
+                {
+                  name: "enabled",
+                  type: "checkbox",
+                  defaultValue: true,
+                  label: "Show this suggestion",
+                },
               ],
               admin: { initCollapsed: false },
             },
@@ -140,19 +163,25 @@ export const Posts: CollectionConfig<'posts'> = {
         },
       ],
     },
-    { name: 'publishedAt', type: 'date', admin: { position: 'sidebar' } },
-    { name: 'authors', type: 'relationship', admin: { position: 'sidebar' }, hasMany: true, relationTo: 'users' },
+    { name: "publishedAt", type: "date", admin: { position: "sidebar" } },
+    {
+      name: "authors",
+      type: "relationship",
+      admin: { position: "sidebar" },
+      hasMany: true,
+      relationTo: "users",
+    },
     // Populated by populateAuthors — `users` has locked-down read access
     // (it's this toolkit's SSO-bridge collection, see payload.config.ts),
     // so authorship can't be resolved via the direct relationship alone.
     {
-      name: 'populatedAuthors',
-      type: 'array',
+      name: "populatedAuthors",
+      type: "array",
       access: { update: () => false },
       admin: { disabled: true, readOnly: true },
       fields: [
-        { name: 'id', type: 'text' },
-        { name: 'name', type: 'text' },
+        { name: "id", type: "text" },
+        { name: "name", type: "text" },
       ],
     },
     slugField(),
@@ -167,4 +196,4 @@ export const Posts: CollectionConfig<'posts'> = {
     drafts: { autosave: { interval: 800 } },
     maxPerDoc: 50,
   },
-}
+};

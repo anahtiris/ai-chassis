@@ -1,12 +1,25 @@
 @import url("https://fonts.googleapis.com/css2?family=Gentium+Book+Basic:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Vendored copy, not "generative-ui-kit/theme.css" directly — Turbopack
+   panics resolving that specifier through the pnpm symlink because the
+   package lives in a separate sibling repo, not a monorepo package. See
+   app/generative-ui-theme.css. */
+@import "./generative-ui-theme.css";
 
-/* Admin + Payload theme — this file is imported by app/admin/layout.tsx
-   (the custom admin portal) and app/(payload)/layout.tsx (Payload's own
-   /admin/cms), so both share one set of tokens/utilities. It is
-   deliberately NOT imported by the root app/layout.tsx anymore — a future
-   public content section gets its own separate CSS file + @theme (see
+/* generative-ui-kit ships from a local sibling package (symlinked into
+   node_modules) — Tailwind v4 excludes node_modules from class detection
+   by default, so its source files need an explicit @source registration
+   or classes used only there get silently purged in production. Requires
+   turbopack.root in next.config.ts (see there) or Turbopack panics trying
+   to reach outside the workspace root. */
+@source "../node_modules/generative-ui-kit/src";
+
+/* Admin-portal theme — imported by app/(app)/admin/layout.tsx only. NOT
+   imported by app/(payload)/layout.tsx: the base layer + Tailwind preflight
+   below reset Payload's own chrome and break its layout (see that file's
+   comment). NOT imported by app/(app)/layout.tsx either — a future public
+   content section gets its own separate CSS file + @theme (see
    docs/decisions.md "Separate Tailwind themes per section" for the
    reasoning), rather than inheriting this one.
 
@@ -78,10 +91,10 @@
   --color-error: #ea2e44;
   --color-info: #0fb4e6;
 
-  --text-xs: 0.720rem;
+  --text-xs: 0.72rem;
   --text-xs--line-height: 1.125rem;
   --text-xs--letter-spacing: 0.025em;
-  --text-sm: 0.900rem;
+  --text-sm: 0.9rem;
   --text-sm--line-height: 1.375rem;
   --text-sm--letter-spacing: 0.025em;
   --text-base: 1.125rem;
@@ -110,10 +123,14 @@
   --text-6xl--letter-spacing: -0.04em;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
 
   --radius-sm: 0.5rem;
@@ -198,7 +215,12 @@
   body {
     @apply bg-background text-foreground font-body;
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading;
   }
 }

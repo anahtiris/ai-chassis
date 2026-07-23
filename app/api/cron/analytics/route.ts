@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/client'
 // Triggered by Vercel Cron on the schedule in vercel.json. Computes counts
 // for the previous full day and writes them to AnalyticsSnapshot — never
 // reads from that table in the same job, and the admin dashboard
-// (app/admin/analytics/page.tsx) never reads anything but that table. See
+// (app/(app)/admin/analytics/page.tsx) never reads anything but that table. See
 // docs/decisions.md "Analytics: nightly snapshot job, dashboard never reads
 // live tables."
 //

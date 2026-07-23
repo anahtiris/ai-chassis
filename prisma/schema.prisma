@@ -49,15 +49,15 @@ model User {
 // permission values. Each project defines its own permission set; this
 // model just needs a string identifying which one.
 model UserPermission {
-  id             String            @id @default(uuid())
+  id             String           @id @default(uuid())
   user_id        String
-  user           User              @relation(fields: [user_id], references: [id])
+  user           User             @relation(fields: [user_id], references: [id])
   permission     String
-  status         PermissionStatus  @default(Active)
-  effective_from DateTime          @default(now())
+  status         PermissionStatus @default(Active)
+  effective_from DateTime         @default(now())
   effective_to   DateTime?
   reason         String?
-  created_at     DateTime          @default(now())
+  created_at     DateTime         @default(now())
   archived_at    DateTime?
 
   @@unique([user_id, permission])
@@ -68,14 +68,14 @@ model UserPermission {
 // Written once, imported everywhere that mutates app-schema data — see
 // docs/decisions.md "Auth/permission checking implemented once".
 model AuditLog {
-  id           String   @id @default(uuid())
-  entity_type  String
-  entity_id    String
-  action       String
-  actor        String
-  before       Json?
-  after        Json?
-  created_at   DateTime @default(now())
+  id          String   @id @default(uuid())
+  entity_type String
+  entity_id   String
+  action      String
+  actor       String
+  before      Json?
+  after       Json?
+  created_at  DateTime @default(now())
 
   @@map("audit_logs")
   @@schema("app")
@@ -86,48 +86,73 @@ model AuditLog {
 // (Lead → Referral, etc.) that followed it there. What happens after
 // capture is project-specific and doesn't belong in this base model.
 model FormSubmission {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   form_key    String
   name        String?
   email       String?
   payload     Json
   source      String?
-  created_at  DateTime @default(now())
+  created_at  DateTime  @default(now())
   archived_at DateTime?
 
   @@map("form_submissions")
   @@schema("app")
 }
 
+// Identity + a pointer at whichever AiPromptConfigVersion is currently
+// live. Real history (prompt_text/model/temperature/max_tokens per save)
+// lives in AiPromptConfigVersion — this model no longer carries content
+// directly, so switching versions is just repointing active_version_id.
 model AiPromptConfig {
-  id          String   @id @default(uuid())
-  key         String   @unique
+  id                String                  @id @default(uuid())
+  key               String                  @unique
+  active_version_id String?                 @unique
+  active_version    AiPromptConfigVersion?  @relation("ActiveVersion", fields: [active_version_id], references: [id])
+  versions          AiPromptConfigVersion[] @relation("ConfigVersions")
+  created_at        DateTime                @default(now())
+  updated_at        DateTime                @updatedAt
+
+  @@map("ai_prompt_configs")
+  @@schema("app")
+}
+
+// One immutable row per save. `version` is monotonically increasing per
+// config_id and never reused — rolling back repoints AiPromptConfig's
+// active_version_id at an existing row here rather than creating a new one
+// or renumbering, so "v3" always means the same snapshot.
+model AiPromptConfigVersion {
+  id          String          @id @default(uuid())
+  config_id   String
+  config      AiPromptConfig  @relation("ConfigVersions", fields: [config_id], references: [id])
+  version     Int
   prompt_text String
   // Nullable generation overrides — null means "fall back to the
   // AI_PROVIDER-driven default in lib/ai/provider.ts", not zero.
   model       String?
   temperature Float?
   max_tokens  Int?
-  version     Int      @default(1)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  change_note String?
+  created_by  String
+  created_at  DateTime        @default(now())
+  active_for  AiPromptConfig? @relation("ActiveVersion")
 
-  @@map("ai_prompt_configs")
+  @@unique([config_id, version])
+  @@map("ai_prompt_config_versions")
   @@schema("app")
 }
 
 model AiConversation {
-  id           String   @id @default(uuid())
-  session_id   String
-  messages     Json
-  created_at   DateTime @default(now())
+  id         String   @id @default(uuid())
+  session_id String
+  messages   Json
+  created_at DateTime @default(now())
 
   @@map("ai_conversations")
   @@schema("app")
 }
 
 // Written only by app/api/cron/analytics/route.ts, read only by
-// app/admin/analytics/page.tsx — never the reverse. See docs/decisions.md
+// app/(app)/admin/analytics/page.tsx — never the reverse. See docs/decisions.md
 // "Analytics: nightly snapshot job, dashboard never reads live tables."
 // Generic (metric_key, value) shape rather than fixed columns, matching
 // UserPermission's "no fixed enum" precedent — this toolkit only knows

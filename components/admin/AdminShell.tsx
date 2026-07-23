@@ -3,9 +3,9 @@
 /**
  * Admin portal layout: a fixed sidebar (module navigation) + a top navbar
  * (page title, user, sign out). Wraps every /admin/* page under the
- * app/admin/(shell) route group — NOT the /admin hub landing or
- * /admin/login, which stand alone (see app/admin/(shell)/layout.tsx and
- * app/admin/page.tsx).
+ * app/(app)/admin/(shell) route group — NOT the /admin hub landing or
+ * /admin/login, which stand alone (see app/(app)/admin/(shell)/layout.tsx and
+ * app/(app)/admin/page.tsx).
  *
  * Deliberately simpler than the POC version this was generalized from: no
  * collapse-to-icons toggle, no separate mobile nav strip — just the sidebar
@@ -36,7 +36,7 @@ interface NavItem {
 // 'dashboard' is always visible (any authenticated admin, no permission
 // gate) — it's the Administration hub card's landing spot. Every other item
 // is filtered by `visibleKeys`, computed server-side in
-// app/admin/(shell)/layout.tsx from the signed-in user's permissions.
+// app/(app)/admin/(shell)/layout.tsx from the signed-in user's permissions.
 const NAV: NavItem[] = [
   { key: 'dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { key: 'users', href: '/admin/users', icon: Users },
