@@ -1,29 +1,33 @@
-import type { Plugin } from 'payload'
-import { postgresAdapter } from '@payloadcms/db-postgres'
-import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
-import { buildConfig } from 'payload'
-import { seoPlugin } from '@payloadcms/plugin-seo'
-import type { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
-import { redirectsPlugin } from '@payloadcms/plugin-redirects'
-import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
-import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
-import { searchPlugin } from '@payloadcms/plugin-search'
-import payloadcmsVectorize from 'payloadcms-vectorize'
-import { createPostgresVectorIntegration } from '@payloadcms-vectorize/pg'
-import type { ToKnowledgePoolFn } from 'payloadcms-vectorize'
-import { embedDocs, embedQuery, EMBEDDING_DIMS } from '@/lib/ai/embeddings'
-import { Pages } from '@/lib/payload/collections/pages'
-import { Posts } from '@/lib/payload/collections/posts'
-import { Categories } from '@/lib/payload/collections/categories'
-import { Media } from '@/lib/payload/collections/media'
-import { Users } from '@/lib/payload/collections/users'
-import { AiConcierge } from '@/lib/payload/concierge/global'
-import { createRevalidateHooks } from '@/lib/payload/hooks/revalidateCollection'
-import { bridgeFormSubmissionToPrisma } from '@/lib/payload/hooks/bridgeFormSubmission'
-import { searchFields } from '@/lib/payload/search/fieldOverrides'
-import { beforeSyncWithSearch } from '@/lib/payload/search/beforeSync'
-import { lexicalToPlainText } from '@/lib/payload/lexicalToPlainText'
-import type { Page, Post } from '@/payload-types'
+import type { Plugin } from "payload";
+import { postgresAdapter } from "@payloadcms/db-postgres";
+import {
+  FixedToolbarFeature,
+  HeadingFeature,
+  lexicalEditor,
+} from "@payloadcms/richtext-lexical";
+import { buildConfig } from "payload";
+import { seoPlugin } from "@payloadcms/plugin-seo";
+import type { GenerateTitle, GenerateURL } from "@payloadcms/plugin-seo/types";
+import { redirectsPlugin } from "@payloadcms/plugin-redirects";
+import { nestedDocsPlugin } from "@payloadcms/plugin-nested-docs";
+import { formBuilderPlugin } from "@payloadcms/plugin-form-builder";
+import { searchPlugin } from "@payloadcms/plugin-search";
+import payloadcmsVectorize from "payloadcms-vectorize";
+import { createPostgresVectorIntegration } from "@payloadcms-vectorize/pg";
+import type { ToKnowledgePoolFn } from "payloadcms-vectorize";
+import { embedDocs, embedQuery, EMBEDDING_DIMS } from "@/lib/ai/embeddings";
+import { Pages } from "@/lib/payload/collections/pages";
+import { Posts } from "@/lib/payload/collections/posts";
+import { Categories } from "@/lib/payload/collections/categories";
+import { Media } from "@/lib/payload/collections/media";
+import { Users } from "@/lib/payload/collections/users";
+import { AiConcierge } from "@/lib/payload/concierge/global";
+import { createRevalidateHooks } from "@/lib/payload/hooks/revalidateCollection";
+import { bridgeFormSubmissionToPrisma } from "@/lib/payload/hooks/bridgeFormSubmission";
+import { searchFields } from "@/lib/payload/search/fieldOverrides";
+import { beforeSyncWithSearch } from "@/lib/payload/search/beforeSync";
+import { lexicalToPlainText } from "@/lib/payload/lexicalToPlainText";
+import type { Page, Post } from "@/payload-types";
 
 // CMS-managed content only — see docs/decisions.md "Admin portal scope" and
 // "CMS and admin share one Postgres instance". Everything
@@ -37,7 +41,7 @@ import type { Page, Post } from '@/payload-types'
 // one deliberate separation is Prisma's `app` schema, which has no such
 // caveat.
 
-const ragEnabled = process.env.RAG_ENABLED === 'true'
+const ragEnabled = process.env.RAG_ENABLED === "true";
 
 // Backs the "Generate" buttons on Pages/Posts' SEO tab fields
 // (MetaTitleField/PreviewField's `hasGenerateFn: true`, in
@@ -47,19 +51,20 @@ const ragEnabled = process.env.RAG_ENABLED === 'true'
 // in beyond NEXT_PUBLIC_SERVER_URL, unlike the original project's version
 // (`Payload Website Template`, a hardcoded `/industries/<slug>` shape).
 const generateTitle: GenerateTitle<Post | Page> = ({ doc }) =>
-  doc?.title ? `${doc.title} | ai-chassis` : 'ai-chassis'
+  doc?.title ? `${doc.title} | ai-chassis` : "ai-chassis";
 
 const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
-  const base = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:4000'
-  return doc?.slug ? `${base}/${doc.slug}` : base
-}
+  const base = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:4000";
+  return doc?.slug ? `${base}/${doc.slug}` : base;
+};
 
 // Reuses the same tag-based revalidation factory Pages/Posts/AiConcierge
 // already use (lib/payload/hooks/revalidateCollection.ts), rather than the
 // original project's revalidateRedirects.ts (a near-identical one-off
 // calling revalidateTag('redirects', 'max') directly) — one generic
 // mechanism instead of a parallel copy.
-const { afterChange: revalidateRedirectsAfterChange } = createRevalidateHooks('redirects')
+const { afterChange: revalidateRedirectsAfterChange } =
+  createRevalidateHooks("redirects");
 
 // Feeds the starter `pages` collection into the "content" knowledge pool —
 // see lib/knowledge/provider.ts's RagProvider, which queries this pool by
@@ -67,20 +72,22 @@ const { afterChange: revalidateRedirectsAfterChange } = createRevalidateHooks('r
 // pool name just needs to stay different from every collection slug (the
 // plugin's own requirement — see its README "Troubleshooting").
 const pagesToKnowledgePool: ToKnowledgePoolFn = async (doc) => {
-  const entries: Array<{ chunk: string; slug?: string }> = []
-  const slug = typeof doc.slug === 'string' ? doc.slug : undefined
+  const entries: Array<{ chunk: string; slug?: string }> = [];
+  const slug = typeof doc.slug === "string" ? doc.slug : undefined;
 
-  if (typeof doc.title === 'string' && doc.title.trim()) {
-    entries.push({ chunk: doc.title, slug })
+  if (typeof doc.title === "string" && doc.title.trim()) {
+    entries.push({ chunk: doc.title, slug });
   }
 
-  const bodyText = lexicalToPlainText((doc.content as { root?: unknown } | undefined)?.root).trim()
+  const bodyText = lexicalToPlainText(
+    (doc.content as { root?: unknown } | undefined)?.root,
+  ).trim();
   if (bodyText) {
-    entries.push({ chunk: bodyText, slug })
+    entries.push({ chunk: bodyText, slug });
   }
 
-  return entries
-}
+  return entries;
+};
 
 // Only actually constructed when RAG_ENABLED=true — see docs/decisions.md
 // "RAG implementation: payloadcms-vectorize + pgvector". Direct content
@@ -93,7 +100,7 @@ const vectorIntegration = ragEnabled
   ? createPostgresVectorIntegration({
       content: { dims: EMBEDDING_DIMS, ivfflatLists: 100 },
     })
-  : null
+  : null;
 
 export default buildConfig({
   // Mounted at /admin/cms, not the default /admin — proxy.ts already guards
@@ -101,7 +108,7 @@ export default buildConfig({
   // leads, analytics, users), so Payload's own panel needs a distinct path
   // to avoid colliding with it. Same precedent the original project used.
   routes: {
-    admin: '/admin/cms',
+    admin: "/admin/cms",
   },
   admin: {
     user: Users.slug,
@@ -113,14 +120,14 @@ export default buildConfig({
     // consistent regardless of the visitor's OS setting; the brand colors
     // themselves still don't reach Payload's native chrome (separate
     // palette), only the custom components under components/payload/*.
-    theme: 'light',
+    theme: "light",
     components: {
       // See components/payload/BackToHubButton.tsx — Payload's own logout
       // isn't meaningful when auth is delegated to Auth.js (see
       // lib/payload/authStrategy.ts), so this replaces it with a link back
       // to the /admin hub, where the real sign-out lives.
       logout: {
-        Button: '@/components/payload/BackToHubButton#BackToHubButton',
+        Button: "@/components/payload/BackToHubButton#BackToHubButton",
       },
       // See components/payload/RedirectToLogin.tsx — Payload's own login
       // view expects local-strategy fields that don't exist (disabled on
@@ -128,7 +135,7 @@ export default buildConfig({
       // already gates /admin/cms behind a valid Auth.js session), but if it
       // ever is, redirect to the real login page instead of showing a
       // broken form.
-      beforeLogin: ['@/components/payload/RedirectToLogin'],
+      beforeLogin: ["@/components/payload/RedirectToLogin"],
     },
   },
   editor: lexicalEditor(),
@@ -138,8 +145,21 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URL,
     },
+    // Disable dev-mode pushDevSchema. Default is true when
+    // NODE_ENV !== production, which makes @payloadcms/db-postgres introspect
+    // the WHOLE database on every Payload init (no schemaName is set — see
+    // note above) and drop into an interactive "create or rename?" prompt on
+    // any drift. On a non-TTY server (background dev server, next dev without
+    // an attached terminal) that prompt never gets answered, so every request
+    // that initializes Payload blocks for minutes. Schema is managed via
+    // Payload migrations instead: `pnpm payload:migrate:create` +
+    // `pnpm payload:migrate`. See docs/decisions.md "Known issues".
+    push: false,
     ...(vectorIntegration
-      ? { extensions: ['vector'], afterSchemaInit: [vectorIntegration.afterSchemaInitHook] }
+      ? {
+          extensions: ["vector"],
+          afterSchemaInit: [vectorIntegration.afterSchemaInitHook],
+        }
       : {}),
   }),
   plugins: [
@@ -147,7 +167,7 @@ export default buildConfig({
     // field can point at (pages/posts, this toolkit's own two content
     // collections), revalidated by tag on change like everything else here.
     redirectsPlugin({
-      collections: ['pages', 'posts'],
+      collections: ["pages", "posts"],
       overrides: {
         hooks: {
           afterChange: [revalidateRedirectsAfterChange],
@@ -157,8 +177,9 @@ export default buildConfig({
     // Adds parent/breadcrumbs to Categories — generic taxonomy nesting, no
     // fixed URL shape assumed beyond joining ancestor slugs with `/`.
     nestedDocsPlugin({
-      collections: ['categories'],
-      generateURL: (docs) => docs.reduce((url, doc) => `${url}/${doc.slug}`, ''),
+      collections: ["categories"],
+      generateURL: (docs) =>
+        docs.reduce((url, doc) => `${url}/${doc.slug}`, ""),
     }),
     seoPlugin({ generateTitle, generateURL }),
     // Form-builder's own `forms`/`form-submissions` collections, generic
@@ -179,19 +200,21 @@ export default buildConfig({
       formOverrides: {
         fields: ({ defaultFields }) =>
           defaultFields.map((field) => {
-            if ('name' in field && field.name === 'confirmationMessage') {
+            if ("name" in field && field.name === "confirmationMessage") {
               return {
                 ...field,
                 editor: lexicalEditor({
                   features: ({ rootFeatures }) => [
                     ...rootFeatures,
                     FixedToolbarFeature(),
-                    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
+                    HeadingFeature({
+                      enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
+                    }),
                   ],
                 }),
-              }
+              };
             }
-            return field
+            return field;
           }),
       },
       formSubmissionOverrides: {
@@ -204,7 +227,7 @@ export default buildConfig({
     // beforeSync only reference slug/meta/categories shapes this toolkit's
     // own collections already have (lib/payload/search/).
     searchPlugin({
-      collections: ['posts'],
+      collections: ["posts"],
       beforeSync: beforeSyncWithSearch,
       searchOverrides: {
         fields: ({ defaultFields }) => [...defaultFields, ...searchFields],
@@ -214,15 +237,15 @@ export default buildConfig({
       ? [
           payloadcmsVectorize({
             dbAdapter: vectorIntegration.adapter,
-            realtimeQueueName: 'vectorize-realtime',
+            realtimeQueueName: "vectorize-realtime",
             knowledgePools: {
               content: {
                 collections: {
                   pages: { toKnowledgePool: pagesToKnowledgePool },
                 },
-                extensionFields: [{ name: 'slug', type: 'text' }],
+                extensionFields: [{ name: "slug", type: "text" }],
                 embeddingConfig: {
-                  version: 'v1',
+                  version: "v1",
                   queryFn: embedQuery,
                   realTimeIngestionFn: embedDocs,
                 },
@@ -240,11 +263,11 @@ export default buildConfig({
     // (check the payload-jobs collection in /admin/cms) before assuming
     // saved content gets embedded automatically.
     autoRun: ragEnabled
-      ? [{ cron: '*/5 * * * * *', limit: 10, queue: 'vectorize-realtime' }]
+      ? [{ cron: "*/5 * * * * *", limit: 10, queue: "vectorize-realtime" }]
       : [],
   },
-  secret: process.env.PAYLOAD_SECRET ?? '',
+  secret: process.env.PAYLOAD_SECRET ?? "",
   typescript: {
-    outputFile: 'payload-types.ts',
+    outputFile: "payload-types.ts",
   },
-})
+});

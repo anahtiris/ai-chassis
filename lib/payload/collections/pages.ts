@@ -1,23 +1,23 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig } from "payload";
 import {
   FixedToolbarFeature,
   HeadingFeature,
   HorizontalRuleFeature,
   InlineToolbarFeature,
   lexicalEditor,
-} from '@payloadcms/richtext-lexical'
-import { slugField } from 'payload'
+} from "@payloadcms/richtext-lexical";
+import { slugField } from "payload";
 import {
   MetaDescriptionField,
   MetaImageField,
   MetaTitleField,
   OverviewField,
   PreviewField,
-} from '@payloadcms/plugin-seo/fields'
-import { authenticated, authenticatedOrPublished } from '../access'
-import { populatePublishedAt } from '../hooks/populatePublishedAt'
-import { createRevalidateHooks } from '../hooks/revalidateCollection'
-import { defaultPageConciergeQuestions } from '../concierge/defaultPageQuestions'
+} from "@payloadcms/plugin-seo/fields";
+import { authenticated, authenticatedOrPublished } from "../access";
+import { populatePublishedAt } from "../hooks/populatePublishedAt";
+import { createRevalidateHooks } from "../hooks/revalidateCollection";
+import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggestions";
 
 // Generic CMS page: title + rich text content, versioned drafts, SEO
 // fields, and an AI Concierge question override — no page-builder block
@@ -25,11 +25,13 @@ import { defaultPageConciergeQuestions } from '../concierge/defaultPageQuestions
 // no page-builder blocks" for why). Field names (title/slug/content) are
 // load-bearing: payload.config.ts's RAG knowledge-pool feed reads them
 // directly.
-const { afterChange: revalidateAfterChange, afterDelete: revalidateAfterDelete } =
-  createRevalidateHooks('pages')
+const {
+  afterChange: revalidateAfterChange,
+  afterDelete: revalidateAfterDelete,
+} = createRevalidateHooks("pages");
 
-export const Pages: CollectionConfig<'pages'> = {
-  slug: 'pages',
+export const Pages: CollectionConfig<"pages"> = {
+  slug: "pages",
   access: {
     create: authenticated,
     delete: authenticated,
@@ -38,24 +40,26 @@ export const Pages: CollectionConfig<'pages'> = {
   },
   defaultPopulate: { title: true, slug: true },
   admin: {
-    defaultColumns: ['title', 'slug', 'updatedAt'],
-    useAsTitle: 'title',
+    defaultColumns: ["title", "slug", "updatedAt"],
+    useAsTitle: "title",
   },
   fields: [
-    { name: 'title', type: 'text', required: true },
+    { name: "title", type: "text", required: true },
     {
-      type: 'tabs',
+      type: "tabs",
       tabs: [
         {
-          label: 'Content',
+          label: "Content",
           fields: [
             {
-              name: 'content',
-              type: 'richText',
+              name: "content",
+              type: "richText",
               editor: lexicalEditor({
                 features: ({ rootFeatures }) => [
                   ...rootFeatures,
-                  HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
+                  HeadingFeature({
+                    enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
+                  }),
                   FixedToolbarFeature(),
                   InlineToolbarFeature(),
                   HorizontalRuleFeature(),
@@ -66,44 +70,63 @@ export const Pages: CollectionConfig<'pages'> = {
           ],
         },
         {
-          name: 'meta',
-          label: 'SEO',
+          name: "meta",
+          label: "SEO",
           fields: [
             OverviewField({
-              titlePath: 'meta.title',
-              descriptionPath: 'meta.description',
-              imagePath: 'meta.image',
+              titlePath: "meta.title",
+              descriptionPath: "meta.description",
+              imagePath: "meta.image",
             }),
             MetaTitleField({ hasGenerateFn: true }),
-            MetaImageField({ relationTo: 'media' }),
+            MetaImageField({ relationTo: "media" }),
             MetaDescriptionField({}),
             PreviewField({
               hasGenerateFn: true,
-              titlePath: 'meta.title',
-              descriptionPath: 'meta.description',
+              titlePath: "meta.title",
+              descriptionPath: "meta.description",
             }),
           ],
         },
         {
-          name: 'aiConcierge',
-          label: 'AI Concierge',
+          name: "aiConcierge",
+          label: "AI Concierge",
           fields: [
             {
-              name: 'enabled',
-              type: 'checkbox',
+              name: "enabled",
+              type: "checkbox",
               defaultValue: true,
-              label: 'Enable AI Concierge on this page',
+              label: "Enable AI Concierge on this page",
             },
             {
-              name: 'questions',
-              type: 'array',
+              name: "suggestions",
+              type: "array",
               minRows: 0,
-              label: 'Questions for this page',
-              labels: { singular: 'Question', plural: 'Questions' },
-              defaultValue: defaultPageConciergeQuestions,
+              label: "Suggestions for this page",
+              labels: { singular: "Suggestion", plural: "Suggestions" },
+              defaultValue: defaultPageConciergeSuggestions,
               fields: [
-                { name: 'question', type: 'text', required: true },
-                { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show this question' },
+                {
+                  name: "label",
+                  type: "text",
+                  required: true,
+                  label: "Chip label",
+                },
+                {
+                  name: "sampleMessage",
+                  type: "text",
+                  label: "Message sent (optional)",
+                  admin: {
+                    description:
+                      "Sent to the concierge on click. Leave blank to send the label itself.",
+                  },
+                },
+                {
+                  name: "enabled",
+                  type: "checkbox",
+                  defaultValue: true,
+                  label: "Show this suggestion",
+                },
               ],
               admin: { initCollapsed: false },
             },
@@ -112,9 +135,9 @@ export const Pages: CollectionConfig<'pages'> = {
       ],
     },
     {
-      name: 'publishedAt',
-      type: 'date',
-      admin: { position: 'sidebar' },
+      name: "publishedAt",
+      type: "date",
+      admin: { position: "sidebar" },
     },
     slugField(),
   ],
@@ -127,4 +150,4 @@ export const Pages: CollectionConfig<'pages'> = {
     drafts: { autosave: { interval: 800 } },
     maxPerDoc: 50,
   },
-}
+};

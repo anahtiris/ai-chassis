@@ -173,9 +173,13 @@ export interface Page {
   };
   aiConcierge?: {
     enabled?: boolean | null;
-    questions?:
+    suggestions?:
       | {
-          question: string;
+          label: string;
+          /**
+           * Sent to the concierge on click. Leave blank to send the label itself.
+           */
+          sampleMessage?: string | null;
           enabled?: boolean | null;
           id?: string | null;
         }[]
@@ -337,9 +341,13 @@ export interface Post {
   };
   aiConcierge?: {
     enabled?: boolean | null;
-    questions?:
+    suggestions?:
       | {
-          question: string;
+          label: string;
+          /**
+           * Sent to the concierge on click. Leave blank to send the label itself.
+           */
+          sampleMessage?: string | null;
           enabled?: boolean | null;
           id?: string | null;
         }[]
@@ -758,10 +766,11 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         enabled?: T;
-        questions?:
+        suggestions?:
           | T
           | {
-              question?: T;
+              label?: T;
+              sampleMessage?: T;
               enabled?: T;
               id?: T;
             };
@@ -794,10 +803,11 @@ export interface PostsSelect<T extends boolean = true> {
     | T
     | {
         enabled?: T;
-        questions?:
+        suggestions?:
           | T
           | {
-              question?: T;
+              label?: T;
+              sampleMessage?: T;
               enabled?: T;
               id?: T;
             };
@@ -1181,9 +1191,13 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 export interface AiConcierge {
   id: number;
   enabled?: boolean | null;
-  questions?:
+  suggestions?:
     | {
-        question: string;
+        label: string;
+        /**
+         * What gets sent to the concierge when this chip is clicked. Leave blank to send the label itself.
+         */
+        sampleMessage?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -1196,10 +1210,11 @@ export interface AiConcierge {
  */
 export interface AiConciergeSelect<T extends boolean = true> {
   enabled?: T;
-  questions?:
+  suggestions?:
     | T
     | {
-        question?: T;
+        label?: T;
+        sampleMessage?: T;
         id?: T;
       };
   updatedAt?: T;

@@ -60,8 +60,8 @@ layer.
 
 A single session/permission-check module, imported by both the CMS layer
 and the admin routes — not ported twice into two different trees. This
-covers session *verification* only ("who is this, is the session valid").
-*Authorization* — what a verified identity is allowed to do — can and
+covers session _verification_ only ("who is this, is the session valid").
+_Authorization_ — what a verified identity is allowed to do — can and
 should differ per area: the CMS side might check a coarser flag, the admin
 portal checks the finer permission enum (audit log access, user management,
 etc.). One shared session, area-specific permission checks on top.
@@ -131,7 +131,7 @@ Node.js runtime as of Next.js 16, which would further weaken the original
 
 The original project used Entra ID (OIDC) exclusively — fine for a single
 client with an existing Microsoft tenant, wrong as a starter-kit default.
-Requiring an Entra app registration just to log into a *fresh fork* for the
+Requiring an Entra app registration just to log into a _fresh fork_ for the
 first time is real setup friction this toolkit shouldn't impose. Credentials
 is now the first provider in `auth.ts` and needs zero external setup: it
 checks a bcrypt `password_hash` column on `User` (prisma/schema.prisma),
@@ -157,7 +157,7 @@ all — logged in, but invisible to the permission system. Fixed via a
 `signIn` callback in `auth.ts`, shared by both providers:
 
 - If the database has **no users at all yet**, the first successful sign-in
-  from *either* provider creates the `User` row and sets `is_owner: true`.
+  from _either_ provider creates the `User` row and sets `is_owner: true`.
   `seed:admin` (scripts/seed-admin.ts) applies the same rule for the
   Credentials path, so whichever bootstrap happens first — running the seed
   script, or just signing in with Entra ID against an empty database — wins,
@@ -218,10 +218,10 @@ Two things worth flagging, not resolved by writing the code:
   a real `OPENAI_API_KEY` — no such environment was available while building
   this. Treat first real use as the actual test, not this implementation.
 - **Realtime embedding depends on something calling `getPayload({ cron: true
-  })`.** `lib/payload/client.ts` does this, and `RagProvider` uses that
+})`.** `lib/payload/client.ts` does this, and `RagProvider` uses that
   client — but nothing in this toolkit calls `getKnowledgeProvider()` yet
   (there's no concierge chat endpoint built, only the `ConciergeChat.tsx`
-  *pattern* referenced from the original project's POC, per "Established POC
+  _pattern_ referenced from the original project's POC, per "Established POC
   Patterns"). Until that endpoint exists, saving content in `/admin/cms`
   with `RAG_ENABLED=true` may not actually trigger embedding — verify via
   the `payload-jobs` collection rather than assuming it works.
@@ -284,7 +284,7 @@ the output, versus Storybook's bare default styles beforehand).
 `Dropdown`'s discriminated-union props (`DropdownSingleProps |
 DropdownMultipleProps`) don't have optional/default values, so a
 `render`-only story (managing its own `useState` for a live demo) doesn't
-satisfy `StoryObj`'s `Args` requirement on its own — TypeScript needs *some*
+satisfy `StoryObj`'s `Args` requirement on its own — TypeScript needs _some_
 `args` matching one arm of the union even though `render` ignores them.
 Fixed by giving each `Dropdown` story a minimal correctly-typed `args`
 object alongside its `render` function, rather than loosening the story's
@@ -347,7 +347,7 @@ conventions rather than a fresh CLI-generated baseline. Verified instead via
 a real `pnpm install` + `pnpm typecheck` + `pnpm build` (Turbopack) against
 this project's actual files — compiled successfully, confirming the
 Tailwind/PostCSS/component pipeline itself is wired correctly, even though
-the component *source* wasn't registry-verified.
+the component _source_ wasn't registry-verified.
 
 Wired into all six admin pages under `app/admin/(shell)/` (users,
 audit-logs, form-results, ai/prompts, ai/conversations, analytics) —
@@ -391,10 +391,10 @@ exclusion list.
 **i18n: kept the POC's mechanism, not its content.** The original plan for
 this toolkit dropped i18n entirely, on the assumption that the POC's
 Thai/English `t()` system was tied to a specific market. Revisited: the
-*mechanism* — a namespace-scoped JSON catalog with a humanize-on-miss
+_mechanism_ — a namespace-scoped JSON catalog with a humanize-on-miss
 fallback (`lib/i18n.ts`) — is genuinely domain-agnostic infrastructure, the
 same category as the permission system or the audit log. What was
-Blackatz-specific was the catalog *content* (business nav labels, Thai
+Blackatz-specific was the catalog _content_ (business nav labels, Thai
 strings), not the lookup pattern itself. So the pattern was kept, trimmed to
 two namespaces this toolkit actually needs (`admin`, `common`), and
 `messages/en/*.json` was repopulated with this toolkit's own nav labels and
@@ -417,12 +417,13 @@ This page is intentionally outside the `(shell)` route group and so is
 never wrapped in `AdminShell` — it's what the sidebar's logo links back to,
 not a page inside the sidebar's own navigation. Same reasoning as the POC's
 own layout comment ("hub landing... stand[s] alone").
+
 - A real AI chat/concierge UI. The POC's `ConciergeChat.tsx` looked
   promising but turned out to be a fully scripted mock — a hardcoded
   `SCRIPT` object and fake referral-code generator, no call to any AI
   provider at all — and its content (Blackatz's specific sales script,
   Hovia referral flow) is business logic, not infrastructure. Building a
-  *real* one — wired to `lib/ai/provider.ts` and `lib/knowledge/provider.ts`,
+  _real_ one — wired to `lib/ai/provider.ts` and `lib/knowledge/provider.ts`,
   generic content — is a separate, larger feature, not a port.
 
 ## Known issues
@@ -461,14 +462,14 @@ may be the more pragmatic answer long-term rather than fighting Postgres's
 own default schema conventions.
 
 **Trap this leads people into:** if P3005 shows up, dropping and recreating
-*only* `app` looks like the obvious fix and isn't — it also deletes Prisma's
+_only_ `app` looks like the obvious fix and isn't — it also deletes Prisma's
 own `_prisma_migrations` tracking table (which lives inside `app`), which
 resets Prisma back to believing this is the first migration ever. The
 whole-database check then re-runs and fails again immediately, because
 `public` still has Payload's tables (Payload pushes them there automatically
 on `pnpm dev`, not just when `/admin/cms` is actually visited — so `public`
 is dirty far sooner than it looks). Recreating `app` alone can loop on this
-indefinitely. The actual fix is to drop and recreate *both* schemas, then
+indefinitely. The actual fix is to drop and recreate _both_ schemas, then
 re-run `prisma:migrate` before starting `pnpm dev` or touching any Payload
 command again.
 
@@ -476,7 +477,7 @@ command again.
 
 Carried over from the original project's rule (CLAUDE.md §8 "Analytics Batch
 Job"): a scheduled job writes aggregate counts to a snapshot table, and the
-admin dashboard reads *only* that table, never live rows directly. Two
+admin dashboard reads _only_ that table, never live rows directly. Two
 reasons this matters, not just precedent: computing aggregates on every
 dashboard load gets slow as tables grow, and it keeps the dashboard's
 queries decoupled from whatever indexes/schema changes happen on the live
@@ -511,7 +512,7 @@ regardless.
 
 Ported from the original project's `payload-poc`
 (`payload/auth/entraStrategy.ts`), which solved this by giving Payload a
-custom `AuthStrategy` that reads the *same* session cookie the custom admin
+custom `AuthStrategy` that reads the _same_ session cookie the custom admin
 portal uses, disables Payload's local strategy entirely (removing both
 password login and the create-first-user flow), and provisions a matching
 Payload `users` row on first sight, keyed by email.
@@ -520,7 +521,7 @@ Payload `users` row on first sight, keyed by email.
 hand-rolled HS256 JWT (`verifySession()`, a custom `jose`-based helper) by
 parsing the cookie header manually. This toolkit uses Auth.js instead, so
 the direct equivalent is `next-auth/jwt`'s `getToken()` — deliberately
-*not* hand-rolled the way the POC's cookie parsing was, because Auth.js
+_not_ hand-rolled the way the POC's cookie parsing was, because Auth.js
 v5's JWT encoding derives a different encryption key per cookie name (the
 `salt` parameter) and applies a `secure`-prefix convention Auth.js manages
 internally; reproducing that by hand risks silently failing to decode
@@ -536,12 +537,12 @@ matches what Payload hands a strategy directly: `getToken({ req: { headers
 generic `authenticated` predicate, also ported) are new. `payload.config.ts`
 now defines an explicit `users` collection — previously there wasn't one,
 so Payload auto-generated its own default (with password fields) the
-moment `admin.user` needed *something*, which is what produced the
+moment `admin.user` needed _something_, which is what produced the
 create-first-user prompt in the first place. The new one:
 `disableLocalStrategy: true`, `strategies: [authjsStrategy]`, `admin.hidden:
 true` (operators aren't managed here — that's `/admin/users`, backed by
 Prisma's `app.User`; this collection exists only because Payload requires
-*some* auth collection to attach admin sessions to).
+_some_ auth collection to attach admin sessions to).
 
 **Follow-up required, not automatic:** because the `users` collection's
 shape changed (no more password/reset-token/lockout columns), any project
@@ -664,6 +665,30 @@ placeholders ("What can you help me with?", "How do I get started?").
 Lives under `lib/payload/concierge/` (`global.ts`, `defaultPageQuestions.ts`,
 `resolveQuestions.ts`, `hooks.ts`).
 
+**Follow-up (2026-07-23) — `questions` renamed to `suggestions`, single
+`question` string → `{ label, sampleMessage }`.** A concierge chip only carried
+one string, which had to serve as both the button text and the message sent.
+Split into `label` (chip text, required) + `sampleMessage` (message sent,
+optional; falls back to label when blank) so a short chip ("Pricing") can
+trigger a fuller question ("How much does the pro plan cost?"). The shape now
+matches generative-ui-kit's exported `Suggestion` type, so the resolved list
+feeds the chat widget's `suggestions` prop directly — `resolveConciergeSuggestions()`
+returns complete `{ label, sampleMessage }` objects, not `string[]`. Renamed
+files: `defaultPageQuestions.ts` → `defaultPageSuggestions.ts`,
+`resolveQuestions.ts` → `resolveSuggestions.ts`; the array field is now
+`suggestions` on the global and both collections (+ their version tables).
+Applied via a **hand-written** Payload migration
+(`20260723_232000_rename_concierge_questions_to_suggestions`): `payload
+migrate:create` drops into an interactive create-vs-rename table prompt that
+can't be answered on a non-TTY server (same root cause as `push: false` — see
+"Known issues"), and piping input / allocating a pty both failed to drive the
+`prompts` library. The tables held only disposable default rows, so the
+migration drops the old `*_questions` tables and creates fresh `*_suggestions`
+ones rather than remapping columns. Caveat: the initial migration's `.json`
+schema snapshot was NOT updated, so the next `migrate:create` (if ever run in a
+real terminal) will re-diff against the pre-rename shape — regenerate the
+snapshot there if you resume using the generator.
+
 ### Validating Payload config changes without a live database
 
 This sandbox has no Postgres, so `payload migrate:create` can't run here —
@@ -676,7 +701,7 @@ just built, not just TypeScript syntax. Payload's CLI needed
 (the project's own `node_modules` only had the macOS binary) — added,
 verified, then removed again before copying the lockfile back, so it
 doesn't end up as a stray dependency in the real project (the lockfile's
-existing `esbuild/linux-arm64` *entries* are normal — pnpm records every
+existing `esbuild/linux-arm64` _entries_ are normal — pnpm records every
 optional platform variant for completeness regardless of host OS — just
 confirmed those were already present before this session's changes, not
 newly introduced). The regenerated `payload-types.ts` was copied back too,
@@ -750,7 +775,7 @@ throwaway embedded Postgres in-sandbox anyway (npm's `embedded-postgres` +
 `@embedded-postgres/linux-arm64`, matching the pattern already used for the
 sibling `payload-poc` project) before discovering this, confirmed the
 command's behavior is identical with or without a database present. Left as
-a documented option for future sandbox work that *does* need a live
+a documented option for future sandbox work that _does_ need a live
 connection (e.g. testing an actual `payload migrate:create`), but not
 required for this validation.
 
@@ -896,6 +921,25 @@ Tailwind's built-in scale already uses, and overriding them would shift
 spacing on every existing admin page as a side effect of a color/font
 change, not a decision worth making implicitly.
 
+**Follow-up (2026-07-23) — Payload no longer imports `globals.css`; the "share
+one theme" decision above is reversed for Payload.** The shared import turned
+out to actively break Payload's admin layout: `globals.css` pulls in Tailwind's
+preflight (via `@import "tailwindcss"`) plus a base element layer (`*`, `body`,
+`h1-h6` in that file), which reset margins/box-sizing/type on Payload's OWN
+chrome — Payload's admin UI relies on the default UA styles preflight strips, so
+`/admin/cms` rendered crammed into the top-left with microscopic type and no
+proper grid. The "custom Tailwind-based components share tokens" rationale was
+also empty: the only custom Payload components (`BackToHubButton`,
+`RedirectToLogin`) use Payload's own classes (`nav__log-out`) or none — nothing
+under `/admin/cms` consumed a brand token. Fixed by dropping
+`import '@/app/globals.css'` from `app/(payload)/layout.tsx`; Payload styles
+itself entirely via `@payloadcms/next/css`. If a future custom Payload field
+genuinely needs brand tokens, give it a scoped, preflight-free stylesheet
+(Tailwind v4: import `tailwindcss/theme.css` + `tailwindcss/utilities.css` in
+layers, skip `tailwindcss/preflight.css`) rather than re-importing globals.css.
+The admin portal (`app/(app)/admin/layout.tsx`) still imports globals.css
+unchanged — this only removes it from the Payload branch.
+
 ### Payload's own admin theme is a separate system from this toolkit's Tailwind tokens
 
 After the brand theme above shipped, `/admin/cms` still rendered on a dark
@@ -935,7 +979,7 @@ Closes a real gap: outside of the very first (owner) sign-in, there was no
 way to add a `User` row at all — not through Credentials, and not through
 Entra ID either (both providers require a matching `User` row to already
 exist post-bootstrap; see "Bootstrap: first user is owner" above, which
-this corrects — Entra ID does *not* get an exemption). Two fixes:
+this corrects — Entra ID does _not_ get an exemption). Two fixes:
 
 - `scripts/seed-admin.ts` was broken under `tsx`:
   `import { hash } from 'bcryptjs'` failed at runtime
@@ -971,7 +1015,7 @@ Explicit decision on scope, asked directly rather than assumed: the form
 only renders for users with a non-null `password_hash` (i.e. can already
 sign in via Credentials). Entra ID-only accounts see an explanatory message
 instead of a form. Rejected alternative: letting an Entra ID-only account
-*set* a password here for the first time, becoming a dual-login account —
+_set_ a password here for the first time, becoming a dual-login account —
 bigger scope (an identity-policy question, not just a UI one — should an
 SSO-managed account be able to grow a local credential on its own?) and not
 needed to close the actual gap (accounts that already have a password
@@ -992,7 +1036,7 @@ dev-server connect (`process.env.NODE_ENV !== 'production'`, unless
 Payload's collection definitions — this is normal, expected dev-mode
 behavior, not a bug on its own. But `payload.config.ts` deliberately sets
 no `schemaName` on the adapter (see "Known issues" above), so this push's
-schema diff isn't scoped to `public` — it introspects the *entire*
+schema diff isn't scoped to `public` — it introspects the _entire_
 database. It found Prisma's `app._prisma_migrations` table, didn't
 recognize it as belonging to a schema it manages, flagged it as
 unexpected drift with a DATA LOSS warning, and — after a confirmation
@@ -1016,6 +1060,121 @@ this isn't a real fix, just a documented hazard: the same permanent fix
 already proposed above (scoping the Postgres role to `GRANT USAGE` on only
 `app`) would prevent Payload's push from ever seeing `app`'s tables in the
 first place, closing this off at the same time as the P3005 trap.
+
+### Same P3005 trap resurfaced mid-feature — `prisma migrate reset` needs both schemas dropped, not just `app`
+
+Hit again while building the `AiPromptConfig` versioning restructure below:
+`prisma migrate reset` drops `app` (which holds `_prisma_migrations`) and,
+in re-creating it from migration history, re-triggers the exact
+"first-migration, whole-database emptiness check" already documented above
+— except now `app` itself is empty by design (mid-reset) and `public`
+(Payload's tables) is the thing that trips P3005. The existing "Trap this
+leads people into" guidance was correct: the fix is to drop and recreate
+_both_ `public` and `app`, then re-run migrations, not just `app`. In this
+instance `public` held no real content (0 rows across `pages`/`posts`/
+`categories`/`media`/`forms`), so the extra drop was low-cost, but that
+won't be true once a fork has real CMS content — the permanent fix already
+proposed above (scope the Postgres role to `app` only) would prevent this
+class of trap entirely rather than requiring this judgment call each time.
+
+Separately: `prisma migrate dev` refuses to run at all outside a real TTY
+(it hard-errors "environment is non-interactive," even with `--create-only`
+and stdin piped to auto-confirm prompts). The non-interactive-safe
+sequence is `prisma migrate diff --from-schema-datasource ... --to-schema-datamodel ... --script`
+to generate the SQL, hand-place it into a timestamped
+`prisma/migrations/<ts>_<name>/migration.sql` folder, then
+`prisma migrate deploy` to apply it — this is also exactly what CI/scripted
+environments should use instead of `migrate dev`.
+
+## AI prompt management: real versioning, cached registry, diffing
+
+`AiPromptConfig` originally had only a `version` integer that incremented
+on every save with no history — the field itself said as much ("not a full
+snapshot history"). That became a real requirement: an admin needs to see
+what a prompt used to say, diff two versions, and roll back, while the
+concierge's request-time read stays fast and reflects a rollback
+immediately (no stale cache window).
+
+**Schema — split identity from snapshots, not a hand-rolled changelog.**
+`AiPromptConfig` is now a pointer (`key` + `active_version_id`);
+`AiPromptConfigVersion` holds one immutable row per save (`prompt_text`,
+`model`, `temperature`, `max_tokens`, `change_note`, `created_by`,
+`version`). Version numbers are `max(version for config_id) + 1` at write
+time and never reused. Rollback repoints `active_version_id` at an existing
+row rather than creating a new version or renumbering — "v3" means the same
+snapshot forever, so activating an old version doesn't surprise anyone by
+changing what "v3" refers to. Clean-break migration (no additive/backwards-
+compatible SQL) since no production data exists for this template yet.
+
+**Cache — `unstable_cache` + `revalidateTag`, not the `'use cache'`
+directive.** `next.config.ts` doesn't set `experimental.cacheComponents`,
+so the newer directive isn't available. `lib/ai/promptRegistry.ts` follows
+the pattern `lib/payload/concierge/hooks.ts` already established
+(`revalidateTag('global_aiConcierge', 'max')` on save) but that pattern had
+no read-side consumer yet — this is the first thing in the codebase to
+actually pair a tagged `unstable_cache` read with the matching
+`revalidateTag` write. Every write to `lib/ai/promptVersions.ts` (new
+version created, or an existing one activated) calls
+`invalidateActivePrompt(key)` so `lib/ai/concierge.ts`'s next read is never
+stale.
+
+**Diff UI — GET query params, not a client component.** Every page under
+`app/admin/(shell)/` is a Server Component with inline `"use server"`
+actions and zero client components; there's also no modal/dialog primitive
+in `components/ui/*` yet. The version picker on
+`app/admin/(shell)/ai/prompts/[key]/page.tsx` is a plain `<form
+method="get">` with native `<select>`s driving `?from=&to=`, keeping that
+convention intact instead of introducing the first client component or
+modal for this one feature. `prompt_text` gets a real `diffLines` diff
+(via the `diff` package — jsdiff v7 needs `@types/diff` explicitly, it
+doesn't ship its own declarations despite some docs suggesting otherwise
+for older majors); `model`/`temperature`/`max_tokens` get before/after
+callouts instead of a line diff since they're scalars, not prose.
+
+**Explicitly out of scope for v1:** deduplicating no-op saves (saving
+identical content still creates a new version row).
+
+## Multiple root layouts: Payload's RootLayout can't be nested
+
+Fixes the hydration issue flagged (but not fixed) in "Separate Tailwind
+themes per section" above. Confirmed by reading
+`node_modules/@payloadcms/next/dist/layouts/Root/index.js` directly:
+`RootLayout` always renders its own `<html>`/`<body>` — there's no prop to
+suppress that, because it's designed to _be_ the app's actual root layout,
+not nested under another one. This toolkit's `app/layout.tsx` also rendered
+`<html>`/`<body>` and wrapped every route including `app/(payload)/`, so
+`/admin/cms` got `<html><body><html><body>...` — real React hydration
+errors in dev, not just a cosmetic warning (browsers' HTML parsers merge
+the duplicate tags when parsing raw markup, but React's client-side
+reconciliation doesn't do that same merging against its own tree).
+
+`suppressHydrationWarning` doesn't fix this — it only silences
+attribute-value mismatches on a single element, not a structural
+element-type mismatch like an `<html>` nested inside a `<body>`.
+
+**Fix:** Next's own documented pattern for exactly this situation —
+[multiple root layouts](https://nextjs.org/docs/app/building-your-application/routing/route-groups#creating-multiple-root-layouts).
+A route group's `layout.tsx` may only define its own independent
+`<html>`/`<body>` if there is no single top-level `app/layout.tsx` sitting
+above it. So: `app/layout.tsx` was deleted, and every route that isn't
+Payload's now lives under a new `app/(app)/` route group whose
+`app/(app)/layout.tsx` is the independent root for that branch (same bare
+`<html><body>{children}</body></html>` shell the old root had, still
+importing no CSS itself — see "Separate Tailwind themes per section").
+`app/(payload)/layout.tsx` needed no change; it was already a self-contained
+root via `RootLayout`, just previously nested under a root it shouldn't
+have been.
+
+Mechanical move, not a rewrite: `app/admin/**` → `app/(app)/admin/**` and
+`app/page.tsx` → `app/(app)/page.tsx`. Checked first, not assumed — every
+file in both trees already used `@/` path aliases, zero relative imports,
+so nothing else needed touching. `app/api/**` did not move: route handlers
+(`route.ts`) aren't part of the layout tree at all, so they're unaffected
+by which root layout exists above pages. Route groups don't appear in
+URLs, so no path changed (`/admin/login` is still `/admin/login`).
+
+Verified via `pnpm build`, `pnpm typecheck`, and a real browser check of
+both `/` and `/admin/cms` — no more hydration warning in the console.
 
 ## Open questions
 

@@ -29,6 +29,37 @@ content (via the CMS), AI prompt management, AI conversation review, form
 results, audit log, analytics, and users/permissions. It does not attempt to
 generalize arbitrary business-entity CRUD.
 
+## Repurposing this for a non-content project (sales, HR, etc.)
+
+If a fork has no CMS content story — an internal sales tracker, an HR tool —
+Payload is optional, not load-bearing. Auth.js, `hasPermission()`, the admin
+portal shell, and Prisma's `app` schema are already decoupled from it; only
+Payload's own `/admin/cms` surface and the AI knowledge layer depend on it.
+Business entities (deals, employees, whatever) go straight into
+`prisma/schema.prisma`'s `app` schema alongside `AiPromptConfig` etc. — that's
+what that schema is for, per "What this deliberately is NOT" above.
+
+Two levels of removal, in increasing scope:
+
+- **Drop RAG, keep direct content injection** — small, mechanical. Delete
+  `RagProvider` from `lib/knowledge/provider.ts` (and `lib/ai/embeddings.ts`,
+  its only consumer), strip the `payloadcmsVectorize` block from
+  `payload.config.ts`, remove `payloadcms-vectorize` /
+  `@payloadcms-vectorize/pg` from `package.json`. `DirectInjectionProvider`
+  has no dependency on any of this and needs no changes.
+- **Drop Payload entirely** — bigger, but still mostly mechanical: delete
+  `payload.config.ts`, `lib/payload/**`, `app/(payload)/**`,
+  `components/payload/**`, and every `@payloadcms/*` / `payload` /
+  `payloadcms-vectorize` dependency; drop the `withPayload()` wrapper in
+  `next.config.ts`. `prisma/schema.prisma` and the admin portal need no
+  changes. Two things aren't mechanical and need a real decision first:
+  `lib/payload/hooks/bridgeFormSubmission.ts` is the only thing that writes
+  Payload form-builder submissions into Prisma's `FormSubmission` table, so
+  dropping Payload means finding a new public-form-submission path if forms
+  still matter; and `lib/knowledge/provider.ts`'s providers both read
+  Payload's `pages` collection, so the AI concierge needs a new content
+  source (e.g. Prisma tables) if it's staying.
+
 ## Core design decisions
 
 - **Deployment model:** fork-and-customize per project, not multi-tenant SaaS.
@@ -66,11 +97,22 @@ database is auto-provisioned as owner, bypassing the permission system
 entirely; everyone after that needs a `User` row to already exist. See
 `docs/decisions.md` "Bootstrap: first user is owner." Both providers have
 been tested end to end against a real Azure AD app registration and a real
-local Postgres. `/admin/users` (owner-only) lists users, has an "Add user"
-form (email + required password — an Entra ID-only account has no local
-password, and making it optional here just produced accounts that couldn't
-sign in by either path if Entra ID wasn't configured), and grants/revokes
-`UserPermission` rows, writing an `AuditLog` entry on each change.
+local Postgres. `/admin/users` (owners **and** `USER_MANAGEMENT` holders —
+`canManageUsers()`) lists users and has an "Add user" form (optional name,
+email + required password — an Entra ID-only account has no local password,
+and making it optional here just produced accounts that couldn't sign in by
+either path if Entra ID wasn't configured). Per-user editing lives on the
+`/admin/users/[id]` subpage: profile (name/email — password stays self-service
+at `/admin/settings`), permissions (the toolkit's built-in permissions,
+`BUILTIN_PERMISSIONS` in `lib/auth/permissions.ts`, render as checkboxes saved
+by one Save button; any other project-defined string can still be granted via
+a free-text "custom permission" field — the `permission` column is
+deliberately free text, see `prisma/schema.prisma`), and a soft-delete (sets
+`archived_at`, so the user loses all access and the audit history is kept).
+**Owner accounts are untouchable by anyone but themselves** (`canManageTarget`)
+— an owner edits only their own profile, no one deletes an owner, and you can't
+delete your own account. Every create/edit/delete/grant/revoke writes an
+`AuditLog` entry.
 `pnpm seed:admin` was also fixed — it failed under `tsx` with `bcryptjs does
 not provide an export named 'hash'` (its CJS entry re-exports indirectly,
 which `cjs-module-lexer` can't statically see through); switched to a
@@ -81,9 +123,12 @@ default import in that script only. See `docs/decisions.md` "Create-user UI
   `AUDIT_LOG_ACCESS` permission string, the first real (non-owner-bypass) use
   of `lib/auth/permissions.ts`'s `hasPermission()`. `/admin/form-results`
   follows the same read-only, permission-gated shape over `FormSubmission`
-  (`FORM_RESULTS_ACCESS`). `/admin/ai/prompts` (create/edit `AiPromptConfig`,
-  version as a running counter) and `/admin/ai/conversations` (read-only
-  review of `AiConversation`) share an `AI_MANAGEMENT` permission.
+  (`FORM_RESULTS_ACCESS`). `/admin/ai/prompts` (create prompts and save new
+  versions of `AiPromptConfig`; each save is an immutable
+  `AiPromptConfigVersion` snapshot, not an overwrite) and its
+  `/admin/ai/prompts/[key]` history page (diff any two versions, roll back
+  by activating an older one) share an `AI_MANAGEMENT` permission with
+  `/admin/ai/conversations` (read-only review of `AiConversation`).
 
 `/admin/analytics` (gated by `ANALYTICS_ACCESS`) rounds out every
 domain-agnostic admin page from "Admin portal scope" — it reads only from
@@ -117,19 +162,21 @@ from the POC, de-branded" for the full story, including why it was
 hand-written rather than CLI-generated (`ui.shadcn.com` is unreachable from
 the sandbox this was built in) and what that means for confidence in it.
 Verified via a real `pnpm build` (Turbopack compiled successfully). Wired
-into all six admin pages under `app/admin/(shell)/` — none are inline-styled
-scaffolding anymore. Not done yet: component stories, and a real AI chat UI
-(the POC's version was a scripted mock, not something to port as-is).
+into all six admin pages under `app/(app)/admin/(shell)/` — none are
+inline-styled scaffolding anymore. Not done yet: a real AI chat UI (the
+POC's version was a scripted mock, not something to port as-is) and public
+content pages — `app/(app)/page.tsx` is still a placeholder scaffold.
 
 `AdminShell` (`components/admin/AdminShell.tsx`) — a fixed sidebar + top
 navbar, simplified from the POC's collapsible/mobile-nav version — wraps
 every admin page except the `/admin` hub landing and `/admin/login`, via a
-route group (`app/admin/(shell)/`) rather than a pathname check. Nav items
-and hub cards are permission-gated server-side (`hasPermission()`) before
-either component ever renders. A small namespace-catalog i18n helper
+route group (`app/(app)/admin/(shell)/`) rather than a pathname check. Nav
+items and hub cards are permission-gated server-side (`hasPermission()`)
+before either component ever renders. A small namespace-catalog i18n helper
 (`lib/i18n.ts` + `messages/en/*.json`) drives all of the labels — kept from
 the POC as reusable infrastructure, repopulated with this toolkit's own
-strings (no Blackatz copy carried over). `app/admin/page.tsx` is the header
+strings (no Blackatz copy carried over). `app/(app)/admin/page.tsx` is the
+header
 
 - card-grid hub landing linking out to whichever sections the signed-in
   user has access to. See `docs/decisions.md` "AdminShell: sidebar + navbar,
@@ -139,15 +186,20 @@ strings (no Blackatz copy carried over). `app/admin/page.tsx` is the header
 
 A generated brand theme (color scales, fonts, type scale, shadows, radius)
 is now wired into `app/globals.css`'s `@theme`, and Tailwind is split per
-section rather than loaded globally: the true root `app/layout.tsx` imports
-no CSS at all, while `app/admin/layout.tsx` and `app/(payload)/layout.tsx`
-both import `app/globals.css`, so the custom admin portal and Payload's own
-`/admin/cms` share one theme (same file, not duplicated). A future public
-content section is expected to get its own separate CSS file and `@theme`
-the same way. See `docs/decisions.md` "Separate Tailwind themes per
-section" for the full reasoning, including a pre-existing, unrelated
-hydration quirk this surfaced (Payload's `RootLayout` nests its own
-`<html>`/`<body>` inside the app's root layout — flagged, not yet fixed).
+section rather than loaded globally: there's no single top-level
+`app/layout.tsx` — Payload's `RootLayout` renders its own `<html>`/`<body>`
+with no opt-out, so this uses Next's [multiple root
+layouts](https://nextjs.org/docs/app/building-your-application/routing/route-groups#creating-multiple-root-layouts)
+pattern instead. `app/(app)/layout.tsx` is an independent root for
+everything except Payload, importing no CSS itself; `app/(app)/admin/layout.tsx`
+and `app/(payload)/layout.tsx` both import `app/globals.css`, so the custom
+admin portal and Payload's own `/admin/cms` share one theme (same file, not
+duplicated). A future public content section is expected to get its own
+separate CSS file and `@theme` the same way. See `docs/decisions.md`
+"Separate Tailwind themes per section" and "Multiple root layouts:
+Payload's RootLayout can't be nested" for the full reasoning — the nested
+`<html>`/`<body>` hydration issue this surfaced is now fixed, not just
+flagged.
 Verified via `pnpm typecheck`, `pnpm build`, and visually in Storybook
 (primary/destructive buttons render as genuinely different reds, not the
 same color).
@@ -240,9 +292,13 @@ Four collections in `/admin/cms`, all generic CMS infrastructure — no
 business-specific page-builder blocks (see `docs/decisions.md` "Collections:
 generic infrastructure only" for what was deliberately left out and why).
 Pages and Posts both get SEO fields, versioned drafts, and an AI Concierge
-question override (site-wide defaults live in the `aiConcierge` global,
+suggestion override (site-wide defaults live in the `aiConcierge` global,
 per-document overrides seed from those defaults on creation — see
-`lib/payload/concierge/`). Live preview isn't wired up — it needs a public
+`lib/payload/concierge/`). Each suggestion is `{ label, sampleMessage }`,
+matching generative-ui-kit's `Suggestion` type: `label` is the chip text,
+`sampleMessage` (optional) is what gets sent to the concierge on click
+(falls back to the label when blank), so a short chip can trigger a fuller
+question. Live preview isn't wired up — it needs a public
 content route this toolkit doesn't have yet.
 
 If you already ran a Payload migration before this, generate and apply a
@@ -293,9 +349,28 @@ cp .env.local .env           # Prisma's CLI only reads .env, not .env.local
 pnpm install
 pnpm prisma:generate
 pnpm prisma:migrate
+pnpm payload:migrate              # creates Payload's own tables — REQUIRED (see below)
 pnpm payload generate:importmap   # generates Payload's admin mount point
 pnpm seed:admin you@example.com 'a-real-password'   # first admin login
 pnpm dev
+```
+
+`pnpm payload:migrate` is not optional: Payload's dev-mode schema auto-push
+(`pushDevSchema`) is **disabled** (`push: false` in `payload.config.ts`), so
+Payload's tables are only ever created/updated by running its migrations —
+they will not appear just from `pnpm dev`. Auto-push was turned off on
+purpose: with no custom `schemaName` set it introspected the whole database
+on every Payload init and dropped into an interactive "create or rename?"
+prompt on any drift, which hangs a non-interactive dev server for minutes.
+See `docs/decisions.md` "Known issues" for the full mechanism.
+
+**After changing any Payload collection/field** (or pulling changes that do),
+regenerate and apply a migration — this replaces what auto-push used to do
+silently:
+
+```bash
+pnpm payload:migrate:create   # generates a migration from the current config
+pnpm payload:migrate          # applies it
 ```
 
 Then sign in at `/admin/login` with whatever email/password you just

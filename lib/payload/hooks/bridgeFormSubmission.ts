@@ -3,7 +3,7 @@ import type { CollectionAfterChangeHook } from 'payload'
 // Bridges @payloadcms/plugin-form-builder's own `form-submissions` collection
 // into this toolkit's existing Prisma `FormSubmission` model (`app.form_submissions`,
 // already the backing store for /admin/form-results — see
-// app/admin/(shell)/form-results/page.tsx). Without this, adopting
+// app/(app)/admin/(shell)/form-results/page.tsx). Without this, adopting
 // form-builder would create a second, disconnected form-submission system:
 // form-builder's own Payload collection, invisible to the admin page that
 // already reads from Prisma. See docs/decisions.md "formBuilderPlugin: one
