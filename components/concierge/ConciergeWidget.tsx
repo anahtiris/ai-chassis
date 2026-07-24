@@ -5,6 +5,7 @@ import { GenerativeChat, defaultRenderers } from "generative-ui-kit";
 import type {
   ChatMessage,
   ChatStreamEvent,
+  RenderPayload,
   Suggestion,
 } from "generative-ui-kit";
 
@@ -37,8 +38,29 @@ export function ConciergeWidget({
       }),
     });
     if (!res.ok) throw new Error(`Concierge request failed (${res.status})`);
-    const data = (await res.json()) as { reply: string };
-    yield { type: "text_done", text: data.reply };
+    const data = (await res.json()) as
+      | { type: "text"; text: string }
+      | {
+          type: "tool_call";
+          toolCallId: string;
+          toolName: string;
+          input: Record<string, unknown>;
+          render: RenderPayload;
+          forModel: Record<string, unknown>;
+        };
+
+    if (data.type === "tool_call") {
+      yield {
+        type: "tool_call",
+        toolCallId: data.toolCallId,
+        toolName: data.toolName,
+        input: data.input,
+        render: data.render,
+        forModel: data.forModel,
+      };
+    } else {
+      yield { type: "text_done", text: data.text };
+    }
   }
 
   return (
