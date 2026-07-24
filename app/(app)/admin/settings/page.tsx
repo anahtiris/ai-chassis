@@ -1,13 +1,16 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { compare, hash } from 'bcryptjs'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/client'
 import { t } from '@/lib/i18n'
+import { parseAppearance } from '@/lib/appearance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { AppearanceControls } from '@/components/settings/AppearanceControls'
 
 // Reached from the /admin hub's "Settings" card — stands alone like the hub
 // itself (not wrapped in AdminShell), since this is personal-account
@@ -30,6 +33,9 @@ export default async function SettingsPage({
   if (!user) redirect('/admin/login')
 
   const hasLocalPassword = Boolean(user.password_hash)
+
+  const cookieStore = await cookies()
+  const appearance = parseAppearance((name) => cookieStore.get(name)?.value)
 
   async function changePassword(formData: FormData) {
     'use server'
@@ -92,6 +98,18 @@ export default async function SettingsPage({
             {t('settings.backToHub')}
           </Link>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{t('settings.appearance.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AppearanceControls
+              initialTheme={appearance.theme}
+              initialFont={appearance.font}
+            />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
