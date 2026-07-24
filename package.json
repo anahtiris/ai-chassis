@@ -16,6 +16,7 @@
     "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "seed:content": "payload run scripts/seed-content.ts",
     "payload:migrate:create": "payload migrate:create",
     "payload:migrate": "payload migrate",
     "storybook": "storybook dev -p 6006",
