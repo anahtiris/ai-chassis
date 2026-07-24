@@ -209,7 +209,6 @@ export default async function AiPromptHistoryPage({
       <div className="space-y-1">
         <h1 className="flex items-center gap-2 text-lg font-semibold">
           {config.name}
-          <Badge variant="outline">{config.prompt_type}</Badge>
         </h1>
         <p className="text-muted-foreground font-mono text-xs">{config.key}</p>
         {config.description && (

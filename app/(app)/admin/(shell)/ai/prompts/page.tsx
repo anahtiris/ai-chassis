@@ -94,11 +94,6 @@ export default async function AiPromptsPage() {
       typeof nameRaw === "string" && nameRaw.trim() !== ""
         ? nameRaw.trim()
         : undefined;
-    const promptTypeRaw = formData.get("prompt_type");
-    const promptType =
-      typeof promptTypeRaw === "string" && promptTypeRaw.trim() !== ""
-        ? promptTypeRaw.trim()
-        : undefined;
     const descriptionRaw = formData.get("description");
     const description =
       typeof descriptionRaw === "string"
@@ -112,7 +107,6 @@ export default async function AiPromptsPage() {
     const { version, previousVersion } = await createPromptVersion({
       key: trimmedKey,
       name,
-      prompt_type: promptType,
       description,
       prompt_text: promptText,
       model,
@@ -146,7 +140,6 @@ export default async function AiPromptsPage() {
           max_tokens: version.max_tokens,
           version: version.version,
           name: name,
-          prompt_type: promptType,
         },
       },
     });
@@ -161,7 +154,6 @@ export default async function AiPromptsPage() {
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
               <span>{prompt.name}</span>
-              <Badge variant="outline">{prompt.prompt_type}</Badge>
               <Badge variant="secondary">
                 v{prompt.active_version?.version ?? "—"}
               </Badge>
@@ -192,23 +184,13 @@ export default async function AiPromptsPage() {
           <CardContent>
             <form action={createVersion} className="flex flex-col gap-3">
               <input type="hidden" name="key" value={prompt.key} />
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`name-${prompt.id}`}>Name</Label>
-                  <Input
-                    id={`name-${prompt.id}`}
-                    name="name"
-                    defaultValue={prompt.name}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`prompt-type-${prompt.id}`}>Type</Label>
-                  <Input
-                    id={`prompt-type-${prompt.id}`}
-                    name="prompt_type"
-                    defaultValue={prompt.prompt_type}
-                  />
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`name-${prompt.id}`}>Name</Label>
+                <Input
+                  id={`name-${prompt.id}`}
+                  name="name"
+                  defaultValue={prompt.name}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`description-${prompt.id}`}>
@@ -289,7 +271,7 @@ export default async function AiPromptsPage() {
         </CardHeader>
         <CardContent>
           <form action={createVersion} className="flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="new-prompt-key">Key</Label>
                 <Input
@@ -305,14 +287,6 @@ export default async function AiPromptsPage() {
                   id="new-prompt-name"
                   name="name"
                   placeholder="defaults to key"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-prompt-type">Type</Label>
-                <Input
-                  id="new-prompt-type"
-                  name="prompt_type"
-                  placeholder="CONCIERGE"
                 />
               </div>
             </div>

@@ -70,8 +70,7 @@ describe("createPromptVersion", () => {
       actor: "admin@example.com",
     });
 
-    // New config: name defaults to key, prompt_type omitted (schema default),
-    // created_by/updated_by set to the actor.
+    // New config: name defaults to key, created_by/updated_by set to the actor.
     expect(tx.aiPromptConfig.create).toHaveBeenCalledWith({
       data: {
         key: "new-key",

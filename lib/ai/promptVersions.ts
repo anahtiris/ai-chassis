@@ -3,11 +3,10 @@ import type { AiPromptConfig, AiPromptConfigVersion } from "@prisma/client";
 
 export interface CreateVersionInput {
   key: string;
-  // Config-level metadata. On create, `name` defaults to `key` and
-  // `prompt_type` to the schema default. On an existing config these update
-  // the metadata in the same save (passing undefined leaves a field untouched).
+  // Config-level metadata. On create, `name` defaults to `key`. On an
+  // existing config these update the metadata in the same save (passing
+  // undefined leaves a field untouched).
   name?: string;
-  prompt_type?: string;
   description?: string | null;
   prompt_text: string;
   model: string | null;
@@ -28,8 +27,8 @@ export interface CreateVersionResult {
 
 // Creates the AiPromptConfig row if `key` is new. Always inserts a new
 // AiPromptConfigVersion (never mutates an existing one) and repoints
-// active_version_id at it. Config metadata (name/prompt_type/description) and
-// updated_by are updated on the same save; version content stays immutable.
+// active_version_id at it. Config metadata (name/description) and updated_by
+// are updated on the same save; version content stays immutable.
 export async function createPromptVersion(
   input: CreateVersionInput,
 ): Promise<CreateVersionResult> {
@@ -45,8 +44,6 @@ export async function createPromptVersion(
         data: {
           key: input.key,
           name: input.name ?? input.key,
-          // prompt_type omitted -> schema default ("CONCIERGE").
-          ...(input.prompt_type ? { prompt_type: input.prompt_type } : {}),
           description: input.description ?? null,
           created_by: input.actor,
           updated_by: input.actor,
@@ -79,9 +76,6 @@ export async function createPromptVersion(
         active_version_id: version.id,
         updated_by: input.actor,
         ...(existing && input.name !== undefined ? { name: input.name } : {}),
-        ...(existing && input.prompt_type !== undefined
-          ? { prompt_type: input.prompt_type }
-          : {}),
         ...(existing && input.description !== undefined
           ? { description: input.description }
           : {}),
