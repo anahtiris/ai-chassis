@@ -43,7 +43,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "diff": "^7.0.0",
-    "generative-ui-kit": "/Users/anahtiris/Projects/generative-ui-playground/packages/generative-ui-kit",
+    "generative-ui-kit": "^0.1.0",
     "jose": "^6.2.3",
     "lucide-react": "^1.25.0",
     "next": "^16.2.9",

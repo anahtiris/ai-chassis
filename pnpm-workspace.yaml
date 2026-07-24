@@ -6,3 +6,5 @@ allowBuilds:
   prisma: false
   sharp: false
   unrs-resolver: false
+minimumReleaseAgeExclude:
+  - generative-ui-kit@0.1.0
