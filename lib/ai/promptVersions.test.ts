@@ -10,6 +10,7 @@ const tx = {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
   },
 };
 
@@ -24,6 +25,7 @@ vi.mock("@/lib/db/client", () => ({
 import { prisma } from "@/lib/db/client";
 import {
   activatePromptVersion,
+  archivePromptVersion,
   createPromptVersion,
   listPromptVersions,
 } from "./promptVersions";
@@ -35,6 +37,7 @@ function resetTx() {
   tx.aiPromptConfigVersion.findFirst.mockReset();
   tx.aiPromptConfigVersion.findUnique.mockReset();
   tx.aiPromptConfigVersion.create.mockReset();
+  tx.aiPromptConfigVersion.update.mockReset();
 }
 
 describe("createPromptVersion", () => {
@@ -64,18 +67,26 @@ describe("createPromptVersion", () => {
       temperature: null,
       max_tokens: null,
       change_note: null,
-      created_by: "admin@example.com",
+      actor: "admin@example.com",
     });
 
+    // New config: name defaults to key, prompt_type omitted (schema default),
+    // created_by/updated_by set to the actor.
     expect(tx.aiPromptConfig.create).toHaveBeenCalledWith({
-      data: { key: "new-key" },
+      data: {
+        key: "new-key",
+        name: "new-key",
+        description: null,
+        created_by: "admin@example.com",
+        updated_by: "admin@example.com",
+      },
     });
     expect(tx.aiPromptConfigVersion.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ config_id: "c1", version: 1 }),
     });
     expect(tx.aiPromptConfig.update).toHaveBeenCalledWith({
       where: { id: "c1" },
-      data: { active_version_id: "v1" },
+      data: { active_version_id: "v1", updated_by: "admin@example.com" },
     });
     expect(result.previousVersion).toBeNull();
   });
@@ -110,12 +121,58 @@ describe("createPromptVersion", () => {
       temperature: null,
       max_tokens: null,
       change_note: "tweak",
-      created_by: "admin@example.com",
+      actor: "admin@example.com",
     });
 
     expect(tx.aiPromptConfigVersion.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ version: 4 }),
     });
+    expect(result.previousVersion).toEqual({
+      id: "v1",
+      config_id: "c1",
+      version: 1,
+    });
+  });
+
+  it("enforces one active version: a new version repoints the single active pointer away from the previous active", async () => {
+    tx.aiPromptConfig.findUnique.mockResolvedValue({
+      id: "c1",
+      key: "existing-key",
+      active_version_id: "v1",
+      active_version: { id: "v1", config_id: "c1", version: 1 },
+    });
+    tx.aiPromptConfigVersion.findFirst.mockResolvedValue({
+      id: "v1",
+      config_id: "c1",
+      version: 1,
+    });
+    tx.aiPromptConfigVersion.create.mockResolvedValue({
+      id: "v2",
+      config_id: "c1",
+      version: 2,
+    });
+    tx.aiPromptConfig.update.mockResolvedValue({
+      id: "c1",
+      key: "existing-key",
+      active_version_id: "v2",
+    });
+
+    const result = await createPromptVersion({
+      key: "existing-key",
+      prompt_text: "Newer",
+      model: null,
+      temperature: null,
+      max_tokens: null,
+      change_note: null,
+      actor: "admin@example.com",
+    });
+
+    // The single active_version_id column is the structural guarantee: there
+    // is exactly one active version at any time. Activating a new one moves
+    // the pointer to v2 and surfaces v1 as the (now inactive) previous.
+    const updateArg = tx.aiPromptConfig.update.mock.calls[0][0];
+    expect(updateArg.where).toEqual({ id: "c1" });
+    expect(updateArg.data.active_version_id).toBe("v2");
     expect(result.previousVersion).toEqual({
       id: "v1",
       config_id: "c1",
@@ -150,12 +207,13 @@ describe("activatePromptVersion", () => {
     const result = await activatePromptVersion({
       key: "existing-key",
       versionId: "v1",
+      actor: "admin@example.com",
     });
 
     expect(tx.aiPromptConfigVersion.create).not.toHaveBeenCalled();
     expect(tx.aiPromptConfig.update).toHaveBeenCalledWith({
       where: { id: "c1" },
-      data: { active_version_id: "v1" },
+      data: { active_version_id: "v1", updated_by: "admin@example.com" },
     });
     expect(result.activated).toEqual({ id: "v1", config_id: "c1", version: 1 });
     expect(result.previousVersion).toEqual({
@@ -179,7 +237,11 @@ describe("activatePromptVersion", () => {
     });
 
     await expect(
-      activatePromptVersion({ key: "existing-key", versionId: "v9" }),
+      activatePromptVersion({
+        key: "existing-key",
+        versionId: "v9",
+        actor: "admin@example.com",
+      }),
     ).rejects.toThrow("does not belong to");
     expect(tx.aiPromptConfig.update).not.toHaveBeenCalled();
   });
@@ -188,7 +250,11 @@ describe("activatePromptVersion", () => {
     tx.aiPromptConfig.findUnique.mockResolvedValue(null);
 
     await expect(
-      activatePromptVersion({ key: "missing-key", versionId: "v1" }),
+      activatePromptVersion({
+        key: "missing-key",
+        versionId: "v1",
+        actor: "admin@example.com",
+      }),
     ).rejects.toThrow("No AiPromptConfig");
   });
 });
@@ -223,9 +289,98 @@ describe("listPromptVersions", () => {
     const result = await listPromptVersions("existing-key");
 
     expect(prisma.aiPromptConfigVersion.findMany).toHaveBeenCalledWith({
-      where: { config_id: "c1" },
+      where: { config_id: "c1", archived_at: null },
       orderBy: { version: "desc" },
     });
     expect(result?.versions).toHaveLength(2);
+  });
+});
+
+describe("archivePromptVersion", () => {
+  beforeEach(() => {
+    resetTx();
+  });
+
+  it("archives a non-active version and bumps the config's updated_by", async () => {
+    tx.aiPromptConfig.findUnique.mockResolvedValue({
+      id: "c1",
+      key: "existing-key",
+      active_version_id: "v2",
+    });
+    tx.aiPromptConfigVersion.findUnique.mockResolvedValue({
+      id: "v1",
+      config_id: "c1",
+      version: 1,
+      archived_at: null,
+    });
+    tx.aiPromptConfigVersion.update.mockResolvedValue({
+      id: "v1",
+      config_id: "c1",
+      version: 1,
+      archived_at: new Date(),
+      archived_by: "admin@example.com",
+    });
+
+    const result = await archivePromptVersion({
+      key: "existing-key",
+      versionId: "v1",
+      actor: "admin@example.com",
+    });
+
+    const updateArg = tx.aiPromptConfigVersion.update.mock.calls[0][0];
+    expect(updateArg.where).toEqual({ id: "v1" });
+    expect(updateArg.data.archived_at).toBeInstanceOf(Date);
+    expect(updateArg.data.archived_by).toBe("admin@example.com");
+    expect(tx.aiPromptConfig.update).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      data: { updated_by: "admin@example.com" },
+    });
+    expect(result.id).toBe("v1");
+  });
+
+  it("refuses to archive the active version", async () => {
+    tx.aiPromptConfig.findUnique.mockResolvedValue({
+      id: "c1",
+      key: "existing-key",
+      active_version_id: "v2",
+    });
+    tx.aiPromptConfigVersion.findUnique.mockResolvedValue({
+      id: "v2",
+      config_id: "c1",
+      version: 2,
+      archived_at: null,
+    });
+
+    await expect(
+      archivePromptVersion({
+        key: "existing-key",
+        versionId: "v2",
+        actor: "admin@example.com",
+      }),
+    ).rejects.toThrow("active version");
+    expect(tx.aiPromptConfigVersion.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a version that belongs to a different config", async () => {
+    tx.aiPromptConfig.findUnique.mockResolvedValue({
+      id: "c1",
+      key: "existing-key",
+      active_version_id: "v2",
+    });
+    tx.aiPromptConfigVersion.findUnique.mockResolvedValue({
+      id: "v9",
+      config_id: "c-other",
+      version: 1,
+      archived_at: null,
+    });
+
+    await expect(
+      archivePromptVersion({
+        key: "existing-key",
+        versionId: "v9",
+        actor: "admin@example.com",
+      }),
+    ).rejects.toThrow("does not belong to");
+    expect(tx.aiPromptConfigVersion.update).not.toHaveBeenCalled();
   });
 });

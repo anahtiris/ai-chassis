@@ -68,12 +68,40 @@ describe("getActivePrompt", () => {
     const result = await getActivePrompt("concierge-system-prompt");
 
     expect(result).toEqual({
+      version_id: "v2",
       prompt_text: "You are Acme Corp support.",
       model: "gpt-4o-mini",
       temperature: 0.3,
       max_tokens: 300,
       version: 2,
     });
+  });
+
+  it("returns null when the config is archived", async () => {
+    vi.mocked(prisma.aiPromptConfig.findUnique).mockResolvedValue({
+      id: "c1",
+      key: "concierge-system-prompt",
+      active_version_id: "v2",
+      active_version: {
+        id: "v2",
+        config_id: "c1",
+        version: 2,
+        prompt_text: "You are Acme Corp support.",
+        model: null,
+        temperature: null,
+        max_tokens: null,
+        change_note: null,
+        created_by: "admin@example.com",
+        created_at: new Date(),
+      },
+      archived_at: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+    } as never);
+
+    const result = await getActivePrompt("concierge-system-prompt");
+
+    expect(result).toBeNull();
   });
 });
 
