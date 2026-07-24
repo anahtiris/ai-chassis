@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { t, tCommon } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 interface NavItem {
   key: string
@@ -107,7 +108,11 @@ export function AdminShell({
             {userLabel && (
               <span className="text-muted-foreground hidden text-sm sm:inline">
                 {userLabel}
-                {isOwner ? ` (${tCommon('owner')})` : ''}
+                {isOwner && (
+                  <Badge variant="secondary" className="ml-2">
+                    {tCommon('owner')}
+                  </Badge>
+                )}
               </span>
             )}
             <form action={onSignOut}>
