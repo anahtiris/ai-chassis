@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { RichText } from "@payloadcms/richtext-lexical/react";
 import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
+import type { Form as FormType } from "@payloadcms/plugin-form-builder/types";
 import { getPayloadClient } from "@/lib/payload/client";
 import {
   resolveConciergeSuggestions,
   isConciergeEnabled,
 } from "@/lib/payload/concierge/resolveSuggestions";
 import { ConciergeWidget } from "@/components/concierge/ConciergeWidget";
+import { PayloadForm } from "@/components/site/Form/PayloadForm";
 
 // Shared renderer for a published CMS Page, used by both the site root (/,
 // slug "home") and the /<slug> catch-all. Draft/unpublished pages 404 for the
@@ -29,6 +31,18 @@ export async function PageView({ slug }: { slug: string }) {
   const page = pages.docs[0];
   if (!page) notFound();
 
+  const formRef = page.form;
+  const formDoc =
+    formRef != null
+      ? await payload
+          .findByID({
+            collection: "forms",
+            id: typeof formRef === "object" ? formRef.id : formRef,
+            overrideAccess: false,
+          })
+          .catch(() => null)
+      : null;
+
   const suggestions = resolveConciergeSuggestions(
     global?.suggestions,
     page.aiConcierge,
@@ -42,6 +56,7 @@ export async function PageView({ slug }: { slug: string }) {
           <RichText data={page.content as SerializedEditorState} />
         )}
       </article>
+      {formDoc && <PayloadForm form={formDoc as unknown as FormType} />}
       {conciergeOn && <ConciergeWidget suggestions={suggestions} />}
     </main>
   );
