@@ -2,6 +2,9 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db/client";
 
 export interface ActivePromptConfig {
+  // Id of the active version row — the immutable snapshot the concierge stamps
+  // onto AiConversation.ai_prompt_version_id for reproducibility.
+  version_id: string;
   prompt_text: string;
   model: string | null;
   temperature: number | null;
@@ -20,11 +23,20 @@ async function loadActivePrompt(
     where: { key },
     include: { active_version: true },
   });
-  if (!config?.active_version) return null;
+  // Archived config = treated as absent, so the caller falls back to the
+  // AI_PROVIDER default rather than a soft-deleted prompt.
+  if (!config?.active_version || config.archived_at) return null;
 
-  const { prompt_text, model, temperature, max_tokens, version } =
+  const { id, prompt_text, model, temperature, max_tokens, version } =
     config.active_version;
-  return { prompt_text, model, temperature, max_tokens, version };
+  return {
+    version_id: id,
+    prompt_text,
+    model,
+    temperature,
+    max_tokens,
+    version,
+  };
 }
 
 // Cached per key — next.config.ts doesn't enable experimental.cacheComponents,

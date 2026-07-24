@@ -103,14 +103,37 @@ model FormSubmission {
 // live. Real history (prompt_text/model/temperature/max_tokens per save)
 // lives in AiPromptConfigVersion — this model no longer carries content
 // directly, so switching versions is just repointing active_version_id.
+// The mutable "head" of a logical prompt (one per functional purpose). Version
+// content is immutable (see AiPromptConfigVersion); this row is the git-branch
+// pointer that moves: active_version_id, metadata, and the soft-delete flag all
+// live here and are meant to change. Selection is by `key` (stable slug);
+// `name`/`prompt_type`/`description` are human/classification metadata. See
+// docs/decisions.md "AI prompt model: two-table + enriched metadata".
 model AiPromptConfig {
   id                String                  @id @default(uuid())
   key               String                  @unique
+  // Display name (spec field). `key` stays the stable code-facing slug.
+  name              String
+  // Functional purpose, e.g. "CONCIERGE". Free string (no fixed enum), matching
+  // UserPermission/AnalyticsSnapshot — a fork adds values, not a Prisma enum.
+  prompt_type       String                  @default("CONCIERGE")
+  description       String?
   active_version_id String?                 @unique
   active_version    AiPromptConfigVersion?  @relation("ActiveVersion", fields: [active_version_id], references: [id])
   versions          AiPromptConfigVersion[] @relation("ConfigVersions")
+  // Audit. *_by hold a User id or a reserved actor token like "system" (String,
+  // not an FK — system/seed writes have no User row). Version content carries
+  // its own created_by; these track the config head.
+  created_by        String
+  updated_by        String
   created_at        DateTime                @default(now())
   updated_at        DateTime                @updatedAt
+  // Soft delete. An archived config is hidden from the admin list and treated
+  // as absent at request time (getActivePrompt returns null -> concierge falls
+  // back to the AI_PROVIDER default). Version history is preserved; recover by
+  // clearing this column in the DB. Mirrors User.archived_at.
+  archived_at       DateTime?
+  archived_by       String?
 
   @@map("ai_prompt_configs")
   @@schema("app")
@@ -134,7 +157,18 @@ model AiPromptConfigVersion {
   change_note String?
   created_by  String
   created_at  DateTime        @default(now())
+  // Per-version soft delete (Option C). Hides a bad/superseded version from the
+  // history UI without deleting the row — conversations referencing it via
+  // ai_prompt_version_id stay reproducible. The active version can never be
+  // archived (roll back first); version numbers are never reused, so gaps are
+  // expected. Recover by clearing archived_at in the DB.
+  archived_at DateTime?
+  archived_by String?
   active_for  AiPromptConfig? @relation("ActiveVersion")
+  // Conversations that were served by this exact (immutable) version — the
+  // structural guarantee behind reproducibility: an AiConversation's snapshot
+  // reference can never drift because version rows never change.
+  conversations AiConversation[]
 
   @@unique([config_id, version])
   @@map("ai_prompt_config_versions")
@@ -145,6 +179,12 @@ model AiConversation {
   id         String   @id @default(uuid())
   session_id String
   messages   Json
+  // The exact prompt version active when this conversation was recorded (the
+  // spec's immutable ai_prompt_id). Nullable: conversations can exist with no
+  // active prompt (concierge ran on the AI_PROVIDER default). Never rewritten
+  // after creation — preserves reproducibility of past AI behavior.
+  ai_prompt_version_id String?
+  ai_prompt_version    AiPromptConfigVersion? @relation(fields: [ai_prompt_version_id], references: [id])
   created_at DateTime @default(now())
 
   @@map("ai_conversations")

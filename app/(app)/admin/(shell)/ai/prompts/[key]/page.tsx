@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/client";
 import { hasPermission } from "@/lib/auth/permissions";
 import {
   activatePromptVersion,
+  archivePromptConfig,
+  archivePromptVersion,
   listPromptVersions,
 } from "@/lib/ai/promptVersions";
 import { invalidateActivePrompt } from "@/lib/ai/promptRegistry";
@@ -14,6 +16,7 @@ import type { AiPromptConfigVersion } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmitButton } from "@/components/admin/ConfirmSubmitButton";
 import {
   Table,
   TableBody,
@@ -24,9 +27,10 @@ import {
 } from "@/components/ui/table";
 
 // Gated by AI_MANAGEMENT, same as app/(app)/admin/(shell)/ai/prompts/page.tsx.
-// GET-query-param version selection instead of a client component/modal —
-// this admin section has no client components anywhere and no modal
-// component exists yet in components/ui/*.
+// Version selection uses GET query params rather than a client component/modal
+// (no modal component exists in components/ui/* yet). The one client component
+// here is ConfirmSubmitButton, guarding the archive action against a stray
+// click — a native confirm() is enough, no modal needed.
 export default async function AiPromptHistoryPage({
   params,
   searchParams,
@@ -59,10 +63,16 @@ export default async function AiPromptHistoryPage({
     const versionId = formData.get("versionId");
     if (typeof formKey !== "string" || typeof versionId !== "string") return;
 
+    const actor = actingSession.user.email ?? actingSession.user.id;
+
     let activated: AiPromptConfigVersion;
     let previousVersion: AiPromptConfigVersion | null;
     try {
-      const result = await activatePromptVersion({ key: formKey, versionId });
+      const result = await activatePromptVersion({
+        key: formKey,
+        versionId,
+        actor,
+      });
       activated = result.activated;
       previousVersion = result.previousVersion;
     } catch {
@@ -78,7 +88,7 @@ export default async function AiPromptHistoryPage({
         entity_type: "AiPromptConfig",
         entity_id: activated.config_id,
         action: "activate_version",
-        actor: actingSession.user.email ?? actingSession.user.id,
+        actor,
         before: previousVersion
           ? { version: previousVersion.version }
           : undefined,
@@ -88,6 +98,90 @@ export default async function AiPromptHistoryPage({
 
     revalidatePath("/admin/ai/prompts");
     revalidatePath(`/admin/ai/prompts/${encodeURIComponent(formKey)}`);
+  }
+
+  // Per-version soft delete (Option C): hide one non-active version from the
+  // history table. Never touches the active pointer or version content — the
+  // helper rejects archiving the active version. Recover via the DB.
+  async function archiveVersion(formData: FormData) {
+    "use server";
+    const actingSession = await auth();
+    if (!actingSession?.user) throw new Error("Not authorized");
+    const ok = await hasPermission(actingSession.user.id, "AI_MANAGEMENT");
+    if (!ok) throw new Error("Not authorized");
+
+    const formKey = formData.get("key");
+    const versionId = formData.get("versionId");
+    if (typeof formKey !== "string" || typeof versionId !== "string") return;
+
+    const actor = actingSession.user.email ?? actingSession.user.id;
+
+    let archived: AiPromptConfigVersion;
+    try {
+      archived = await archivePromptVersion({ key: formKey, versionId, actor });
+    } catch {
+      redirect(
+        `/admin/ai/prompts/${encodeURIComponent(formKey)}?error=archive-version-failed`,
+      );
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        entity_type: "AiPromptConfigVersion",
+        entity_id: archived.id,
+        action: "archive_version",
+        actor,
+        after: {
+          version: archived.version,
+          archived_at: archived.archived_at?.toISOString() ?? null,
+          archived_by: archived.archived_by,
+        },
+      },
+    });
+
+    revalidatePath(`/admin/ai/prompts/${encodeURIComponent(formKey)}`);
+  }
+
+  // Soft delete the whole config: hides it from the prompts list and makes the
+  // concierge fall back to the AI_PROVIDER default (promptRegistry skips
+  // archived rows). Version history stays intact; recover by clearing
+  // archived_at in the DB. No hard delete — immutable versions + audit trail
+  // are the point. Redirects back to the list since this page's subject is now
+  // archived.
+  async function archivePrompt(formData: FormData) {
+    "use server";
+    const actingSession = await auth();
+    if (!actingSession?.user) throw new Error("Not authorized");
+    const ok = await hasPermission(actingSession.user.id, "AI_MANAGEMENT");
+    if (!ok) throw new Error("Not authorized");
+
+    const formKey = formData.get("key");
+    if (typeof formKey !== "string" || !formKey.trim()) return;
+    const trimmedKey = formKey.trim();
+
+    const actor = actingSession.user.email ?? actingSession.user.id;
+    const archived = await archivePromptConfig({ key: trimmedKey, actor });
+    if (!archived) return;
+
+    invalidateActivePrompt(trimmedKey);
+
+    await prisma.auditLog.create({
+      data: {
+        entity_type: "AiPromptConfig",
+        entity_id: archived.id,
+        action: "archive",
+        actor,
+        before: { key: trimmedKey, archived_at: null },
+        after: {
+          key: trimmedKey,
+          archived_at: archived.archived_at?.toISOString() ?? null,
+          archived_by: archived.archived_by,
+        },
+      },
+    });
+
+    revalidatePath("/admin/ai/prompts");
+    redirect("/admin/ai/prompts");
   }
 
   // Default to comparing the two most recent versions.
@@ -112,12 +206,34 @@ export default async function AiPromptHistoryPage({
         ← Back to prompts
       </Link>
 
-      <h1 className="font-mono text-lg font-semibold">{config.key}</h1>
-
-      {error && (
-        <p className="text-destructive text-sm">
-          Could not activate that version — it may no longer exist.
+      <div className="space-y-1">
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
+          {config.name}
+          <Badge variant="outline">{config.prompt_type}</Badge>
+        </h1>
+        <p className="text-muted-foreground font-mono text-xs">{config.key}</p>
+        {config.description && (
+          <p className="text-muted-foreground text-sm">{config.description}</p>
+        )}
+        <p className="text-muted-foreground text-xs">
+          Created by {config.created_by} · updated by {config.updated_by} ·{" "}
+          {config.updated_at.toLocaleString()}
+          {config.archived_at &&
+            ` · archived by ${config.archived_by ?? "—"} ${config.archived_at.toLocaleString()}`}
         </p>
+      </div>
+
+      {error === "archive-version-failed" ? (
+        <p className="text-destructive text-sm">
+          Could not archive that version — it may be the active version (roll
+          back first) or already archived.
+        </p>
+      ) : (
+        error && (
+          <p className="text-destructive text-sm">
+            Could not activate that version — it may no longer exist.
+          </p>
+        )
       )}
 
       {versions.length < 2 && (
@@ -232,7 +348,19 @@ export default async function AiPromptHistoryPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Version history</CardTitle>
+          <CardTitle className="flex items-center justify-between text-sm">
+            Version history
+            <form action={archivePrompt}>
+              <input type="hidden" name="key" value={config.key} />
+              <ConfirmSubmitButton
+                size="sm"
+                variant="destructive"
+                confirmMessage={`Archive "${config.key}"? It disappears from the prompts list and the concierge falls back to the AI_PROVIDER default. History is kept; recover from the database.`}
+              >
+                Archive prompt
+              </ConfirmSubmitButton>
+            </form>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -259,13 +387,45 @@ export default async function AiPromptHistoryPage({
                     <TableCell>{v.created_at.toLocaleString()}</TableCell>
                     <TableCell>
                       {!isActive && (
-                        <form action={activateVersion}>
-                          <input type="hidden" name="key" value={config.key} />
-                          <input type="hidden" name="versionId" value={v.id} />
-                          <Button type="submit" size="sm" variant="outline">
-                            Activate
-                          </Button>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          <form action={activateVersion}>
+                            <input
+                              type="hidden"
+                              name="key"
+                              value={config.key}
+                            />
+                            <input
+                              type="hidden"
+                              name="versionId"
+                              value={v.id}
+                            />
+                            <Button type="submit" size="sm" variant="outline">
+                              Activate
+                            </Button>
+                          </form>
+                          {/* Active version has no Archive — it must be rolled
+                              back first (the helper enforces this too). */}
+                          <form action={archiveVersion}>
+                            <input
+                              type="hidden"
+                              name="key"
+                              value={config.key}
+                            />
+                            <input
+                              type="hidden"
+                              name="versionId"
+                              value={v.id}
+                            />
+                            <ConfirmSubmitButton
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              confirmMessage={`Archive v${v.version}? It disappears from this history. Version content is kept for reproducibility; recover from the database.`}
+                            >
+                              Archive
+                            </ConfirmSubmitButton>
+                          </form>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>

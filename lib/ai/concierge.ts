@@ -67,7 +67,13 @@ export async function getConciergeResponse(
     });
   } else {
     await prisma.aiConversation.create({
-      data: { session_id: sessionId, messages: nextMessages },
+      data: {
+        session_id: sessionId,
+        messages: nextMessages,
+        // Stamp the exact prompt version used (null when running on the
+        // AI_PROVIDER default, i.e. no active/enabled prompt config).
+        ai_prompt_version_id: promptConfig?.version_id ?? null,
+      },
     });
   }
 

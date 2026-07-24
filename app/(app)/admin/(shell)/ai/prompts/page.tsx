@@ -54,6 +54,7 @@ export default async function AiPromptsPage() {
   if (!allowed) redirect("/admin");
 
   const prompts = await prisma.aiPromptConfig.findMany({
+    where: { archived_at: null },
     include: { active_version: true },
     orderBy: { key: "asc" },
   });
@@ -86,14 +87,39 @@ export default async function AiPromptsPage() {
         ? changeNoteRaw.trim()
         : null;
 
+    // Config-level metadata. undefined = leave untouched (field absent);
+    // description empty = clear to null.
+    const nameRaw = formData.get("name");
+    const name =
+      typeof nameRaw === "string" && nameRaw.trim() !== ""
+        ? nameRaw.trim()
+        : undefined;
+    const promptTypeRaw = formData.get("prompt_type");
+    const promptType =
+      typeof promptTypeRaw === "string" && promptTypeRaw.trim() !== ""
+        ? promptTypeRaw.trim()
+        : undefined;
+    const descriptionRaw = formData.get("description");
+    const description =
+      typeof descriptionRaw === "string"
+        ? descriptionRaw.trim() === ""
+          ? null
+          : descriptionRaw.trim()
+        : undefined;
+
+    const actor = actingSession.user.email ?? actingSession.user.id;
+
     const { version, previousVersion } = await createPromptVersion({
       key: trimmedKey,
+      name,
+      prompt_type: promptType,
+      description,
       prompt_text: promptText,
       model,
       temperature,
       max_tokens: maxTokens,
       change_note: changeNote,
-      created_by: actingSession.user.email ?? actingSession.user.id,
+      actor,
     });
 
     invalidateActivePrompt(trimmedKey);
@@ -103,7 +129,7 @@ export default async function AiPromptsPage() {
         entity_type: "AiPromptConfig",
         entity_id: version.config_id,
         action: previousVersion ? "create_version" : "create",
-        actor: actingSession.user.email ?? actingSession.user.id,
+        actor,
         before: previousVersion
           ? {
               prompt_text: previousVersion.prompt_text,
@@ -119,6 +145,8 @@ export default async function AiPromptsPage() {
           temperature: version.temperature,
           max_tokens: version.max_tokens,
           version: version.version,
+          name: name,
+          prompt_type: promptType,
         },
       },
     });
@@ -132,7 +160,8 @@ export default async function AiPromptsPage() {
         <Card key={prompt.id}>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-mono">{prompt.key}</span>
+              <span>{prompt.name}</span>
+              <Badge variant="outline">{prompt.prompt_type}</Badge>
               <Badge variant="secondary">
                 v{prompt.active_version?.version ?? "—"}
               </Badge>
@@ -152,10 +181,46 @@ export default async function AiPromptsPage() {
                 History &amp; diff
               </Link>
             </CardTitle>
+            <p className="text-muted-foreground font-mono text-xs">
+              {prompt.key}
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Updated by {prompt.updated_by} ·{" "}
+              {prompt.updated_at.toLocaleString()}
+            </p>
           </CardHeader>
           <CardContent>
             <form action={createVersion} className="flex flex-col gap-3">
               <input type="hidden" name="key" value={prompt.key} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`name-${prompt.id}`}>Name</Label>
+                  <Input
+                    id={`name-${prompt.id}`}
+                    name="name"
+                    defaultValue={prompt.name}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`prompt-type-${prompt.id}`}>Type</Label>
+                  <Input
+                    id={`prompt-type-${prompt.id}`}
+                    name="prompt_type"
+                    defaultValue={prompt.prompt_type}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`description-${prompt.id}`}>
+                  Description (optional)
+                </Label>
+                <Input
+                  id={`description-${prompt.id}`}
+                  name="description"
+                  defaultValue={prompt.description ?? ""}
+                  placeholder="Human-readable description"
+                />
+              </div>
               <Textarea
                 name="prompt_text"
                 defaultValue={prompt.active_version?.prompt_text ?? ""}
@@ -224,13 +289,41 @@ export default async function AiPromptsPage() {
         </CardHeader>
         <CardContent>
           <form action={createVersion} className="flex flex-col gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-prompt-key">Key</Label>
+                <Input
+                  id="new-prompt-key"
+                  name="key"
+                  placeholder="concierge-system-prompt"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-prompt-name">Name</Label>
+                <Input
+                  id="new-prompt-name"
+                  name="name"
+                  placeholder="defaults to key"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-prompt-type">Type</Label>
+                <Input
+                  id="new-prompt-type"
+                  name="prompt_type"
+                  placeholder="CONCIERGE"
+                />
+              </div>
+            </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-prompt-key">Key</Label>
+              <Label htmlFor="new-prompt-description">
+                Description (optional)
+              </Label>
               <Input
-                id="new-prompt-key"
-                name="key"
-                placeholder="e.g. concierge-system-prompt"
-                required
+                id="new-prompt-description"
+                name="description"
+                placeholder="Human-readable description"
               />
             </div>
             <div className="flex flex-col gap-1.5">

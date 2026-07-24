@@ -32,6 +32,7 @@ describe("getConciergeResponse", () => {
 
   it("uses the configured prompt, model, temperature, and max_tokens, and creates a new conversation", async () => {
     vi.mocked(getActivePrompt).mockResolvedValue({
+      version_id: "ver-2",
       prompt_text: "You are Acme Corp support.",
       model: "gpt-4o-mini",
       temperature: 0.3,
@@ -73,6 +74,7 @@ describe("getConciergeResponse", () => {
           { role: "user", content: "What do you sell?" },
           { role: "assistant", content: "We sell widgets!" },
         ],
+        ai_prompt_version_id: "ver-2",
       },
     });
   });
