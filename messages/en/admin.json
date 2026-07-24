@@ -41,6 +41,22 @@
   "settings": {
     "heading": "Account settings",
     "backToHub": "Back to hub",
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "themeOptions": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "fontSize": "Font size",
+      "fontOptions": {
+        "sm": "Small",
+        "md": "Default",
+        "lg": "Large"
+      },
+      "note": "Applies to this admin portal and the CMS. \"System\" follows your device's light/dark setting."
+    },
     "changePassword": {
       "title": "Change password",
       "currentPassword": "Current password",

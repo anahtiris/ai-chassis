@@ -35,6 +35,7 @@ import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from 
 import { FolderTypeField as FolderTypeField_2b8867833a34864a02ddf429b0728a40 } from '@payloadcms/next/client'
 import { BackToHubButton as BackToHubButton_a8fa6db8207721279f10e5e5478cedf1 } from '@/components/payload/BackToHubButton'
 import { default as default_0d30ad5637f6c625b24ee177d0d80d7e } from '@/components/payload/RedirectToLogin'
+import { AppearanceSync as AppearanceSync_36b2e1e047f006d4ee434a6c2591deef } from '@/components/payload/AppearanceSync'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -76,5 +77,6 @@ export const importMap = {
   "@payloadcms/next/client#FolderTypeField": FolderTypeField_2b8867833a34864a02ddf429b0728a40,
   "@/components/payload/BackToHubButton#BackToHubButton": BackToHubButton_a8fa6db8207721279f10e5e5478cedf1,
   "@/components/payload/RedirectToLogin#default": default_0d30ad5637f6c625b24ee177d0d80d7e,
+  "@/components/payload/AppearanceSync#AppearanceSync": AppearanceSync_36b2e1e047f006d4ee434a6c2591deef,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }
