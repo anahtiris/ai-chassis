@@ -67,6 +67,16 @@ export const Pages: CollectionConfig<"pages"> = {
               }),
               label: false,
             },
+            {
+              name: "form",
+              type: "relationship",
+              relationTo: "forms",
+              label: "Attached form",
+              admin: {
+                description:
+                  "Optional. A form-builder form rendered below the page content (e.g. a contact form).",
+              },
+            },
           ],
         },
         {
