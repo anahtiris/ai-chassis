@@ -16,12 +16,17 @@ import { FONT_SIZES, parseAppearance } from "@/lib/appearance";
 // Tailwind themes per section."
 //
 // Appearance (theme + font-size) is applied on the <html> here from cookies
-// set by /admin/settings (components/settings/AppearanceControls.tsx). Font
-// size is fully server-rendered (no OS dependency). Theme is server-rendered
-// when an explicit choice exists; when it doesn't ("System"), the inline
-// script below applies the OS preference before first paint so it never
-// flashes. Payload's own routes read the mirrored `payload-theme` cookie
-// server-side instead (see payload.config.ts admin.theme).
+// set by /admin/settings (components/settings/AppearanceControls.tsx). Those
+// cookies are scoped to path=/admin (APPEARANCE_COOKIE_PATH in
+// lib/appearance.ts), so this shared root layout only ever sees them on
+// /admin/* requests — public (site) routes never receive them and always
+// fall back to the OS theme + DEFAULT_FONT, independent of any admin's
+// personal preference. Font size is fully server-rendered (no OS
+// dependency). Theme is server-rendered when an explicit choice exists;
+// when it doesn't ("System"), the inline script below applies the OS
+// preference before first paint so it never flashes. Payload's own routes
+// read the mirrored `payload-theme` cookie server-side instead (see
+// payload.config.ts admin.theme).
 
 export const metadata = {
   title: "ai-chassis",

@@ -17,6 +17,12 @@ export const THEME_COOKIE = "theme";
 export const PAYLOAD_THEME_COOKIE = "payload-theme";
 export const FONT_COOKIE = "font-scale";
 
+// Scoped to /admin (covers /admin/cms too) so these stay a personal
+// admin-portal preference — the browser simply never sends them on public
+// (site) requests, which fall back to the OS theme + default font size
+// regardless of what an admin has chosen for themselves.
+export const APPEARANCE_COOKIE_PATH = "/admin";
+
 // Root font-size per preset. Tailwind's rem-based utilities scale off the
 // <html> font-size, so setting it here resizes the whole UI proportionally.
 export const FONT_SIZES: Record<FontScale, string> = {

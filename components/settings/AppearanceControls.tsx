@@ -4,6 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { t } from "@/lib/i18n";
 import {
+  APPEARANCE_COOKIE_PATH,
   COOKIE_MAX_AGE,
   FONT_COOKIE,
   FONT_SIZES,
@@ -14,17 +15,20 @@ import {
 } from "@/lib/appearance";
 
 // The single place a user picks light/dark/system + font size. Writes plain
-// cookies (read server-side by the (app) root layout and by Payload) AND
-// applies the change to the live <html> immediately, so the current page
-// updates without a reload; Payload's /admin/cms picks it up on its next
-// load via the same cookies.
+// cookies scoped to /admin (read server-side by the (app) root layout and by
+// Payload — see APPEARANCE_COOKIE_PATH) AND applies the change to the live
+// <html> immediately, so the current page updates without a reload;
+// Payload's /admin/cms picks it up on its next load via the same cookies.
+// The /admin scope is deliberate: this is a personal admin-portal
+// preference, not a site-wide one — public (site) pages must never inherit
+// it (see docs/decisions.md "Admin appearance cookies scoped to /admin").
 
 function setCookie(name: string, value: string) {
-  document.cookie = `${name}=${value}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+  document.cookie = `${name}=${value}; path=${APPEARANCE_COOKIE_PATH}; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 
 function deleteCookie(name: string) {
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+  document.cookie = `${name}=; path=${APPEARANCE_COOKIE_PATH}; max-age=0; SameSite=Lax`;
 }
 
 function prefersDark(): boolean {
