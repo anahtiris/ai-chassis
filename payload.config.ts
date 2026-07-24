@@ -114,14 +114,20 @@ export default buildConfig({
     user: Users.slug,
     // Payload's own theme system (html[data-theme], --theme-elevation-*
     // etc. in @payloadcms/ui) is entirely separate from this toolkit's
-    // shadcn/Tailwind tokens in app/globals.css — it defaults to 'all'
-    // (follow OS preference) otherwise, which is why /admin/cms could look
-    // dark even after re-theming globals.css. Pinned to 'light' so it's
-    // consistent regardless of the visitor's OS setting; the brand colors
-    // themselves still don't reach Payload's native chrome (separate
-    // palette), only the custom components under components/payload/*.
-    theme: "light",
+    // shadcn/Tailwind tokens in app/globals.css — the brand colors don't
+    // reach Payload's native chrome (separate palette), only the custom
+    // components under components/payload/*. Left at 'all' so /admin/cms
+    // follows the light/dark choice made in /admin/settings: that choice is
+    // mirrored into Payload's own `payload-theme` cookie
+    // (components/settings/AppearanceControls.tsx), which Payload reads
+    // server-side (getRequestTheme). 'all' also means "follow OS" when no
+    // choice is set, matching the toolkit's own "System" default.
+    theme: "all",
     components: {
+      // Bridges the font-size chosen in /admin/settings into Payload's own
+      // <html> (a separate document tree). Theme needs no bridge — the
+      // mirrored `payload-theme` cookie above handles it natively.
+      providers: ["@/components/payload/AppearanceSync#AppearanceSync"],
       // See components/payload/BackToHubButton.tsx — Payload's own logout
       // isn't meaningful when auth is delegated to Auth.js (see
       // lib/payload/authStrategy.ts), so this replaces it with a link back
