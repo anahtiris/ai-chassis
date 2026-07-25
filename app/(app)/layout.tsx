@@ -53,7 +53,18 @@ export default async function AppRootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* type flips server/client so React doesn't warn that script tags
+            don't execute on client-side renders — this one only needs to
+            run once, from the server-rendered HTML the browser parses
+            directly, never from a client re-render. See Next.js docs
+            "Preventing flash before hydration". */}
+        <script
+          type={
+            typeof window === "undefined" ? "text/javascript" : "text/plain"
+          }
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
       </head>
       <body>{children}</body>
     </html>
