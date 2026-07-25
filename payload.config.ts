@@ -79,11 +79,26 @@ const pagesToKnowledgePool: ToKnowledgePoolFn = async (doc) => {
     entries.push({ chunk: doc.title, slug });
   }
 
-  const bodyText = lexicalToPlainText(
-    (doc.content as { root?: unknown } | undefined)?.root,
-  ).trim();
-  if (bodyText) {
-    entries.push({ chunk: bodyText, slug });
+  // Only `content` blocks carry prose worth feeding to the concierge —
+  // mediaBlock/formBlock have no text of their own here.
+  const layout = Array.isArray(doc.layout) ? doc.layout : [];
+  for (const block of layout) {
+    if (
+      !block ||
+      typeof block !== "object" ||
+      (block as { blockType?: unknown }).blockType !== "content"
+    ) {
+      continue;
+    }
+    const columns = Array.isArray((block as { columns?: unknown }).columns)
+      ? ((block as { columns: unknown[] }).columns as Array<{
+          richText?: { root?: unknown };
+        }>)
+      : [];
+    for (const column of columns) {
+      const bodyText = lexicalToPlainText(column.richText?.root).trim();
+      if (bodyText) entries.push({ chunk: bodyText, slug });
+    }
   }
 
   return entries;

@@ -1,11 +1,4 @@
 import type { CollectionConfig } from "payload";
-import {
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from "@payloadcms/richtext-lexical";
 import { slugField } from "payload";
 import {
   MetaDescriptionField,
@@ -18,12 +11,18 @@ import { authenticated, authenticatedOrPublished } from "../access";
 import { populatePublishedAt } from "../hooks/populatePublishedAt";
 import { createRevalidateHooks } from "../hooks/revalidateCollection";
 import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggestions";
+import { Content } from "../blocks/content/config";
+import { MediaBlock } from "../blocks/media/config";
+import { FormBlock } from "../blocks/form/config";
 
-// Generic CMS page: title + rich text content, versioned drafts, SEO
-// fields, and an AI Concierge question override — no page-builder block
-// library (see docs/decisions.md "Collections: generic infrastructure only,
-// no page-builder blocks" for why). Field names (title/slug/content) are
-// load-bearing: payload.config.ts's RAG knowledge-pool feed reads them
+// Generic CMS page: title + a `layout` blocks field, versioned drafts, SEO
+// fields, and an AI Concierge question override. `layout` ships three
+// generic, structural blocks (content/mediaBlock/formBlock) ported from
+// payload-poc — business-specific blocks (LandingHero, IndustriesGrid, etc.)
+// stay excluded, per docs/decisions.md "Collections: generic infrastructure
+// only, no page-builder blocks". Field names (title/slug/layout) are
+// load-bearing: payload.config.ts's RAG knowledge-pool feed and
+// lib/knowledge/provider.ts's DirectInjectionProvider both walk `layout`
 // directly.
 const {
   afterChange: revalidateAfterChange,
@@ -52,30 +51,11 @@ export const Pages: CollectionConfig<"pages"> = {
           label: "Content",
           fields: [
             {
-              name: "content",
-              type: "richText",
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => [
-                  ...rootFeatures,
-                  HeadingFeature({
-                    enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
-                  }),
-                  FixedToolbarFeature(),
-                  InlineToolbarFeature(),
-                  HorizontalRuleFeature(),
-                ],
-              }),
-              label: false,
-            },
-            {
-              name: "form",
-              type: "relationship",
-              relationTo: "forms",
-              label: "Attached form",
-              admin: {
-                description:
-                  "Optional. A form-builder form rendered below the page content (e.g. a contact form).",
-              },
+              name: "layout",
+              type: "blocks",
+              blocks: [Content, MediaBlock, FormBlock],
+              required: true,
+              admin: { initCollapsed: true },
             },
           ],
         },

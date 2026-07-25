@@ -9,18 +9,18 @@
 //     via payloadcms-vectorize, querying the "content" knowledge pool
 //     configured in payload.config.ts.
 
-import { getVectorizedPayload } from 'payloadcms-vectorize'
-import { getPayloadClient } from '@/lib/payload/client'
-import { lexicalToPlainText } from '@/lib/payload/lexicalToPlainText'
+import { getVectorizedPayload } from "payloadcms-vectorize";
+import { getPayloadClient } from "@/lib/payload/client";
+import { lexicalToPlainText } from "@/lib/payload/lexicalToPlainText";
 
 export interface KnowledgeChunk {
-  content: string
-  source: string
-  sourceUrl?: string
+  content: string;
+  source: string;
+  sourceUrl?: string;
 }
 
 export interface KnowledgeProvider {
-  getRelevantKnowledge(query: string): Promise<KnowledgeChunk[]>
+  getRelevantKnowledge(query: string): Promise<KnowledgeChunk[]>;
 }
 
 // Default provider: pulls all published `pages` content directly, no
@@ -30,29 +30,35 @@ export interface KnowledgeProvider {
 // filtering instead).
 class DirectInjectionProvider implements KnowledgeProvider {
   async getRelevantKnowledge(_query: string): Promise<KnowledgeChunk[]> {
-    const payload = await getPayloadClient()
+    const payload = await getPayloadClient();
     const { docs } = await payload.find({
-      collection: 'pages',
-      where: { _status: { equals: 'published' } },
+      collection: "pages",
+      where: { _status: { equals: "published" } },
       limit: 50,
       depth: 0,
-    })
+    });
 
     return docs.flatMap((page): KnowledgeChunk[] => {
-      const chunks: KnowledgeChunk[] = []
-      const sourceUrl = `/${page.slug}`
+      const chunks: KnowledgeChunk[] = [];
+      const sourceUrl = `/${page.slug}`;
 
       if (page.title.trim()) {
-        chunks.push({ content: page.title, source: 'pages', sourceUrl })
+        chunks.push({ content: page.title, source: "pages", sourceUrl });
       }
 
-      const bodyText = lexicalToPlainText(page.content?.root).trim()
-      if (bodyText) {
-        chunks.push({ content: bodyText, source: 'pages', sourceUrl })
+      // Only `content` blocks carry prose worth feeding to the concierge —
+      // mediaBlock/formBlock have no text of their own here.
+      for (const block of page.layout ?? []) {
+        if (block.blockType !== "content") continue;
+        for (const column of block.columns ?? []) {
+          const bodyText = lexicalToPlainText(column.richText?.root).trim();
+          if (bodyText)
+            chunks.push({ content: bodyText, source: "pages", sourceUrl });
+        }
       }
 
-      return chunks
-    })
+      return chunks;
+    });
   }
 }
 
@@ -61,32 +67,39 @@ class DirectInjectionProvider implements KnowledgeProvider {
 // `pages` collection — extend both together as content types grow).
 class RagProvider implements KnowledgeProvider {
   async getRelevantKnowledge(query: string): Promise<KnowledgeChunk[]> {
-    const payload = await getPayloadClient()
-    const vectorizedPayload = getVectorizedPayload(payload)
+    const payload = await getPayloadClient();
+    const vectorizedPayload = getVectorizedPayload(payload);
 
     if (!vectorizedPayload) {
       // Shouldn't happen if RAG_ENABLED matched at config-build time too
       // (payload.config.ts only registers the plugin when it's true) — but
       // fail loudly rather than silently returning no knowledge if it does.
       throw new Error(
-        'RAG_ENABLED is true but payloadcms-vectorize is not registered on this Payload instance — check payload.config.ts was built with RAG_ENABLED=true.',
-      )
+        "RAG_ENABLED is true but payloadcms-vectorize is not registered on this Payload instance — check payload.config.ts was built with RAG_ENABLED=true.",
+      );
     }
 
-    const results = await vectorizedPayload.search({ query, knowledgePool: 'content', limit: 5 })
+    const results = await vectorizedPayload.search({
+      query,
+      knowledgePool: "content",
+      limit: 5,
+    });
 
     return results.map((result) => {
-      const slug = 'slug' in result && typeof result.slug === 'string' ? result.slug : undefined
+      const slug =
+        "slug" in result && typeof result.slug === "string"
+          ? result.slug
+          : undefined;
       return {
         content: result.chunkText,
         source: result.sourceCollection,
         sourceUrl: slug ? `/${slug}` : undefined,
-      }
-    })
+      };
+    });
   }
 }
 
 export function getKnowledgeProvider(): KnowledgeProvider {
-  const ragEnabled = process.env.RAG_ENABLED === 'true'
-  return ragEnabled ? new RagProvider() : new DirectInjectionProvider()
+  const ragEnabled = process.env.RAG_ENABLED === "true";
+  return ragEnabled ? new RagProvider() : new DirectInjectionProvider();
 }

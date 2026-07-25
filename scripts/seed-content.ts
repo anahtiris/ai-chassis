@@ -9,7 +9,7 @@
 // Content is deliberately generic placeholder copy — a fork replaces it.
 import { getPayload } from "payload";
 import config from "@payload-config";
-import type { Page } from "../payload-types";
+import type { Post, Page } from "../payload-types";
 
 // --- minimal lexical richText builders ---------------------------------
 type LexNode = { type: string; version: number; [k: string]: unknown };
@@ -50,7 +50,7 @@ function heading(value: string, tag: "h1" | "h2" | "h3" = "h2"): LexNode {
   };
 }
 
-function richText(...children: LexNode[]): NonNullable<Page["content"]> {
+function richText(...children: LexNode[]): NonNullable<Post["content"]> {
   return {
     root: {
       type: "root",
@@ -60,7 +60,19 @@ function richText(...children: LexNode[]): NonNullable<Page["content"]> {
       indent: 0,
       version: 1,
     },
-  } as unknown as NonNullable<Page["content"]>;
+  } as unknown as NonNullable<Post["content"]>;
+}
+
+// Wraps richText() output as a single full-width `content` block — Pages'
+// `layout` field only accepts blocks now, not a bare richText value. See
+// lib/payload/collections/pages.ts and lib/payload/blocks/content/config.ts.
+function contentLayout(...children: LexNode[]): NonNullable<Page["layout"]> {
+  return [
+    {
+      blockType: "content",
+      columns: [{ size: "full", richText: richText(...children) }],
+    },
+  ] as unknown as NonNullable<Page["layout"]>;
 }
 
 async function main() {
@@ -81,7 +93,7 @@ async function main() {
           { label: "Get started", sampleMessage: "How do I sign up?" },
         ],
       },
-      content: richText(
+      layout: contentLayout(
         heading("Welcome to Acme", "h1"),
         paragraph(
           "Acme is a starter landing page rendered from the Payload CMS. Everything on this page is editable content, not hard-coded markup.",
@@ -99,7 +111,7 @@ async function main() {
     {
       title: "About",
       slug: "about",
-      content: richText(
+      layout: contentLayout(
         heading("About Acme", "h1"),
         paragraph(
           "We build tools that get out of your way. This About page is sample content seeded into the CMS — replace it with your own story.",
@@ -113,7 +125,7 @@ async function main() {
     {
       title: "Contact",
       slug: "contact",
-      content: richText(
+      layout: contentLayout(
         heading("Contact us", "h1"),
         paragraph(
           "Questions? Reach the team below — or ask the concierge in the corner.",
