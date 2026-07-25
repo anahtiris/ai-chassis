@@ -15,3 +15,5 @@ storybook-static
 
 # Local git worktrees for isolated feature work
 .worktrees/
+
+docs
