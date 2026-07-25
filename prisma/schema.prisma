@@ -88,8 +88,11 @@ model AuditLog {
 model FormSubmission {
   id          String    @id @default(uuid())
   form_key    String
-  name        String?
-  email       String?
+  // Raw field/value pairs as submitted — the only source of truth. No
+  // denormalized name/email columns: form-builder forms are arbitrary, not
+  // every form collects a name or email, and this toolkit doesn't assume a
+  // fixed shape on a project's own forms. See docs/decisions.md
+  // "FormSubmission: drop denormalized name/email columns".
   payload     Json
   source      String?
   created_at  DateTime  @default(now())
