@@ -151,6 +151,13 @@ model AiPromptConfigVersion {
   model       String?
   temperature Float?
   max_tokens  Int?
+  // Opt-in per prompt: on a retryable (429) error, retry against the next
+  // provider in AI_PROVIDER_FALLBACK_ORDER instead of failing. Off by
+  // default because a fallback provider ignores this version's `model` (it's
+  // provider-specific) and uses its own default — an explicit tradeoff the
+  // prompt author accepts by checking this, not a global behavior. See
+  // docs/decisions.md "AI provider fallback chain".
+  allow_fallback Boolean @default(false)
   change_note String?
   created_by  String
   created_at  DateTime        @default(now())

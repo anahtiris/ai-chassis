@@ -12,6 +12,7 @@ export interface CreateVersionInput {
   model: string | null;
   temperature: number | null;
   max_tokens: number | null;
+  allow_fallback: boolean;
   change_note: string | null;
   // User id or a reserved actor token ("system"). Recorded on the new version
   // (created_by) and on the config head (created_by on first save, updated_by
@@ -63,6 +64,7 @@ export async function createPromptVersion(
         model: input.model,
         temperature: input.temperature,
         max_tokens: input.max_tokens,
+        allow_fallback: input.allow_fallback,
         change_note: input.change_note,
         created_by: input.actor,
       },

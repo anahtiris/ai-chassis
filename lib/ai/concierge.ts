@@ -74,6 +74,7 @@ export async function getConciergeResponse(
       tools: generativeTools,
     },
     promptConfig?.model ?? undefined,
+    promptConfig?.allow_fallback ?? false,
   );
 
   const toolCall = result.toolCalls?.[0];
@@ -91,12 +92,14 @@ export async function getConciergeResponse(
   return conciergeResult;
 }
 
-// Tries each provider in getProviderChain() in order. modelName (the
-// prompt's stored AiPromptConfig.model) only applies to the first
-// (primary/AI_PROVIDER) attempt — it's a provider-specific string, so a
-// fallback provider uses its own hardcoded default instead (see
-// isRetryableProviderError's doc comment in lib/ai/provider.ts). Only
-// falls back on a retryable (429) error and only while providers remain;
+// Tries each provider in getProviderChain() in order, but only when the
+// active prompt version opted in via allow_fallback — off by default,
+// since a fallback provider ignores modelName (the prompt's stored
+// AiPromptConfig.model, provider-specific and meaningless on another
+// provider) and uses its own hardcoded default instead. allowFallback=false
+// (or no active prompt) restricts the chain to just the primary provider —
+// today's single-attempt behavior, unchanged. Only falls back on a
+// retryable (429) error and only while providers remain in the chain;
 // anything else propagates immediately.
 async function generateWithFallback(
   params: {
@@ -107,8 +110,11 @@ async function generateWithFallback(
     tools: typeof generativeTools;
   },
   modelName: string | undefined,
+  allowFallback: boolean,
 ) {
-  const chain = getProviderChain();
+  const chain = allowFallback
+    ? getProviderChain()
+    : getProviderChain().slice(0, 1);
 
   for (let i = 0; i < chain.length; i++) {
     const provider = chain[i];

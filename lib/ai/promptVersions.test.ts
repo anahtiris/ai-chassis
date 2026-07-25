@@ -66,6 +66,7 @@ describe("createPromptVersion", () => {
       model: null,
       temperature: null,
       max_tokens: null,
+      allow_fallback: false,
       change_note: null,
       actor: "admin@example.com",
     });
@@ -119,6 +120,7 @@ describe("createPromptVersion", () => {
       model: null,
       temperature: null,
       max_tokens: null,
+      allow_fallback: false,
       change_note: "tweak",
       actor: "admin@example.com",
     });
@@ -162,6 +164,7 @@ describe("createPromptVersion", () => {
       model: null,
       temperature: null,
       max_tokens: null,
+      allow_fallback: false,
       change_note: null,
       actor: "admin@example.com",
     });

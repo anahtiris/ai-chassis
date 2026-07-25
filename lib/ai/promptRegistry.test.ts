@@ -57,6 +57,7 @@ describe("getActivePrompt", () => {
         model: "gpt-4o-mini",
         temperature: 0.3,
         max_tokens: 300,
+        allow_fallback: true,
         change_note: null,
         created_by: "admin@example.com",
         created_at: new Date(),
@@ -73,6 +74,7 @@ describe("getActivePrompt", () => {
       model: "gpt-4o-mini",
       temperature: 0.3,
       max_tokens: 300,
+      allow_fallback: true,
       version: 2,
     });
   });
@@ -90,6 +92,7 @@ describe("getActivePrompt", () => {
         model: null,
         temperature: null,
         max_tokens: null,
+        allow_fallback: false,
         change_note: null,
         created_by: "admin@example.com",
         created_at: new Date(),

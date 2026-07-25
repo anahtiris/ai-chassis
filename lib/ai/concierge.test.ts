@@ -58,6 +58,7 @@ describe("getConciergeResponse", () => {
       model: "gpt-4o-mini",
       temperature: 0.3,
       max_tokens: 300,
+      allow_fallback: false,
       version: 2,
     });
     vi.mocked(getKnowledgeProvider).mockReturnValue({

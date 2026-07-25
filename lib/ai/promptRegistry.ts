@@ -9,6 +9,7 @@ export interface ActivePromptConfig {
   model: string | null;
   temperature: number | null;
   max_tokens: number | null;
+  allow_fallback: boolean;
   version: number;
 }
 
@@ -27,14 +28,22 @@ async function loadActivePrompt(
   // AI_PROVIDER default rather than a soft-deleted prompt.
   if (!config?.active_version || config.archived_at) return null;
 
-  const { id, prompt_text, model, temperature, max_tokens, version } =
-    config.active_version;
+  const {
+    id,
+    prompt_text,
+    model,
+    temperature,
+    max_tokens,
+    allow_fallback,
+    version,
+  } = config.active_version;
   return {
     version_id: id,
     prompt_text,
     model,
     temperature,
     max_tokens,
+    allow_fallback,
     version,
   };
 }

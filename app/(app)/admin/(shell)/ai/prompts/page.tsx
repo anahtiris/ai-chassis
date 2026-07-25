@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Empty input -> null (fall back to the AI_PROVIDER-driven default in
 // lib/ai/provider.ts). Non-empty but out-of-range/non-numeric -> undefined,
@@ -59,6 +60,13 @@ export default async function AiPromptsPage() {
     orderBy: { key: "asc" },
   });
 
+  // The fallback toggle only means anything if there's a chain to fall back
+  // through (see lib/ai/provider.ts's getProviderChain) — hide it entirely
+  // otherwise rather than show a control that can't do anything.
+  const fallbackConfigured = Boolean(
+    process.env.AI_PROVIDER_FALLBACK_ORDER?.trim(),
+  );
+
   async function createVersion(formData: FormData) {
     "use server";
     const actingSession = await auth();
@@ -80,6 +88,10 @@ export default async function AiPromptsPage() {
     const temperature = parseOptionalFloat(formData.get("temperature"), 0, 2);
     const maxTokens = parseOptionalInt(formData.get("max_tokens"), 1);
     if (temperature === undefined || maxTokens === undefined) return;
+    // Absent from FormData when unchecked (or when the field isn't rendered
+    // at all because AI_PROVIDER_FALLBACK_ORDER isn't set) — both cases
+    // correctly resolve to false.
+    const allowFallback = formData.get("allow_fallback") === "true";
 
     const changeNoteRaw = formData.get("change_note");
     const changeNote =
@@ -112,6 +124,7 @@ export default async function AiPromptsPage() {
       model,
       temperature,
       max_tokens: maxTokens,
+      allow_fallback: allowFallback,
       change_note: changeNote,
       actor,
     });
@@ -130,6 +143,7 @@ export default async function AiPromptsPage() {
               model: previousVersion.model,
               temperature: previousVersion.temperature,
               max_tokens: previousVersion.max_tokens,
+              allow_fallback: previousVersion.allow_fallback,
               version: previousVersion.version,
             }
           : undefined,
@@ -138,6 +152,7 @@ export default async function AiPromptsPage() {
           model: version.model,
           temperature: version.temperature,
           max_tokens: version.max_tokens,
+          allow_fallback: version.allow_fallback,
           version: version.version,
           name: name,
         },
@@ -166,6 +181,9 @@ export default async function AiPromptsPage() {
               <Badge variant="outline">
                 {prompt.active_version?.max_tokens ?? "default"} max tokens
               </Badge>
+              {fallbackConfigured && prompt.active_version?.allow_fallback && (
+                <Badge variant="outline">fallback on</Badge>
+              )}
               <Link
                 href={`/admin/ai/prompts/${encodeURIComponent(prompt.key)}`}
                 className="text-primary ml-auto text-xs font-normal underline underline-offset-2"
@@ -247,6 +265,16 @@ export default async function AiPromptsPage() {
                   />
                 </div>
               </div>
+              {fallbackConfigured && (
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    name="allow_fallback"
+                    value="true"
+                    defaultChecked={prompt.active_version?.allow_fallback}
+                  />
+                  Allow fallback to another provider on rate limit
+                </label>
+              )}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={`change-note-${prompt.id}`}>
                   Change note (optional)
@@ -344,6 +372,12 @@ export default async function AiPromptsPage() {
                 />
               </div>
             </div>
+            {fallbackConfigured && (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox name="allow_fallback" value="true" />
+                Allow fallback to another provider on rate limit
+              </label>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="new-prompt-change-note">
                 Change note (optional)
