@@ -14,6 +14,7 @@ import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggest
 import { Content } from "../blocks/content/config";
 import { MediaBlock } from "../blocks/media/config";
 import { FormBlock } from "../blocks/form/config";
+import { generatePreviewPath } from "../generatePreviewPath";
 
 // Generic CMS page: title + a `layout` blocks field, versioned drafts, SEO
 // fields, and an AI Concierge question override. `layout` ships three
@@ -41,6 +42,12 @@ export const Pages: CollectionConfig<"pages"> = {
   admin: {
     defaultColumns: ["title", "slug", "updatedAt"],
     useAsTitle: "title",
+    livePreview: {
+      url: ({ data }) =>
+        generatePreviewPath({ collection: "pages", slug: data?.slug }),
+    },
+    preview: (data) =>
+      generatePreviewPath({ collection: "pages", slug: data?.slug as string }),
   },
   fields: [
     { name: "title", type: "text", required: true },

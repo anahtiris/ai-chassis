@@ -19,6 +19,7 @@ import { populatePublishedAt } from "../hooks/populatePublishedAt";
 import { populateAuthors } from "../hooks/populateAuthors";
 import { createRevalidateHooks } from "../hooks/revalidateCollection";
 import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggestions";
+import { generatePreviewPath } from "../generatePreviewPath";
 
 // Blog/article collection: title + hero image + rich text + categories +
 // authors, versioned drafts, SEO fields, AI Concierge question override.
@@ -49,6 +50,12 @@ export const Posts: CollectionConfig<"posts"> = {
   admin: {
     defaultColumns: ["title", "slug", "updatedAt"],
     useAsTitle: "title",
+    livePreview: {
+      url: ({ data }) =>
+        generatePreviewPath({ collection: "posts", slug: data?.slug }),
+    },
+    preview: (data) =>
+      generatePreviewPath({ collection: "posts", slug: data?.slug as string }),
   },
   fields: [
     { name: "title", type: "text", required: true },

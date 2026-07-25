@@ -28,6 +28,7 @@
     "@ai-sdk/openai": "^1.0.0",
     "@payloadcms-vectorize/pg": "^1.1.0",
     "@payloadcms/db-postgres": "^3.85.1",
+    "@payloadcms/live-preview-react": "^3.86.0",
     "@payloadcms/next": "^3.85.1",
     "@payloadcms/plugin-form-builder": "^3.86.0",
     "@payloadcms/plugin-nested-docs": "^3.86.0",

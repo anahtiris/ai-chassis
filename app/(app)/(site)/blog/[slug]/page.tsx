@@ -1,3 +1,4 @@
+import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import { RichText } from "@payloadcms/richtext-lexical/react";
 import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
@@ -7,23 +8,30 @@ import {
   isConciergeEnabled,
 } from "@/lib/payload/concierge/resolveSuggestions";
 import { ConciergeWidget } from "@/components/concierge/ConciergeWidget";
+import { LivePreviewListener } from "@/components/site/LivePreviewListener";
 
-// Renders a published blog Post at /blog/<slug>. Same concierge behaviour as
-// content pages: the widget shows when the post's AI Concierge is enabled.
+// Renders a blog Post at /blog/<slug>. Published-only, unless Next.js Draft
+// Mode is active (see components/site/PageView.tsx's matching comment for
+// the full mechanism) — same concierge behaviour as content pages: the
+// widget shows when the post's AI Concierge is enabled.
 export default async function BlogPostPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const { isEnabled: draft } = await draftMode();
   const payload = await getPayloadClient();
 
   const [posts, global] = await Promise.all([
     payload.find({
       collection: "posts",
-      where: { slug: { equals: slug }, _status: { equals: "published" } },
+      where: draft
+        ? { slug: { equals: slug } }
+        : { slug: { equals: slug }, _status: { equals: "published" } },
+      draft,
       limit: 1,
-      overrideAccess: false,
+      overrideAccess: draft,
     }),
     payload.findGlobal({ slug: "aiConcierge" }),
   ]);
@@ -46,6 +54,7 @@ export default async function BlogPostPage({
         )}
       </article>
       {conciergeOn && <ConciergeWidget suggestions={suggestions} />}
+      {draft && <LivePreviewListener />}
     </main>
   );
 }
