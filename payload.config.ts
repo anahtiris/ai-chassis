@@ -1,4 +1,5 @@
-import type { Plugin } from "payload";
+import type { Plugin, SharpDependency } from "payload";
+import sharp from "sharp";
 import { postgresAdapter } from "@payloadcms/db-postgres";
 import {
   FixedToolbarFeature,
@@ -118,6 +119,13 @@ const vectorIntegration = ragEnabled
   : null;
 
 export default buildConfig({
+  // Required for Media's imageSizes to actually resize on upload — without
+  // it Payload logs a warning and stores originals only, no thumbnails.
+  // Cast: sharp's own overloaded call signature isn't structurally
+  // assignable to Payload's single-signature SharpDependency type — a
+  // types-only mismatch between the two packages, not a real incompatibility
+  // (sharp is Payload's own documented/recommended dependency for this).
+  sharp: sharp as unknown as SharpDependency,
   // Mounted at /admin/cms, not the default /admin — proxy.ts already guards
   // /admin/* for the separate custom admin portal (AI prompts, audit log,
   // leads, analytics, users), so Payload's own panel needs a distinct path
