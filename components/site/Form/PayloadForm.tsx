@@ -94,7 +94,9 @@ export const PayloadForm: React.FC<PayloadFormProps> = ({ form }) => {
                 );
               })}
             </div>
-            <Button type="submit">{submitButtonLabel}</Button>
+            <Button type="submit" disabled={isLoading}>
+              {submitButtonLabel}
+            </Button>
           </form>
         )}
       </FormProvider>

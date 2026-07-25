@@ -40,7 +40,10 @@ export async function PageView({ slug }: { slug: string }) {
             id: typeof formRef === "object" ? formRef.id : formRef,
             overrideAccess: false,
           })
-          .catch(() => null)
+          .catch((err) => {
+            console.error("PageView: failed to load attached form", err);
+            return null;
+          })
       : null;
 
   const suggestions = resolveConciergeSuggestions(
