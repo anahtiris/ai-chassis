@@ -17,14 +17,14 @@ type LinkType = (options?: {
   overrides?: Partial<GroupField>;
 }) => Field;
 
-// Reusable "link" group field — custom URL plus label/appearance/newTab.
-// Ported from payload-poc's fields/link.ts, minus the "internal link"
-// (relationship to pages/posts) variant: that needs a polymorphic
-// relationship table (a new `pages_rels` join table) that doesn't exist
-// anywhere in this codebase yet, and hand-writing one blind (no working
-// `payload migrate:create` here to verify against — see docs/decisions.md
-// "Collections: generic infrastructure only, no page-builder blocks"
-// follow-up) was judged too risky for what this field needs right now.
+// Reusable "link" group field — internal doc reference (pages/posts) or a
+// custom URL, plus label/appearance/newTab. Ported from payload-poc's
+// fields/link.ts. The "reference" relationship is polymorphic
+// (relationTo: ["pages", "posts"]), which Payload's Postgres adapter backs
+// with a shared `pages_rels`/`_pages_v_rels` join table — see
+// migrations/20260725_150000_add_pages_rels.ts for why that table was
+// hand-written (same non-interactive `payload migrate:create` wall as
+// every other migration in this repo) and how its shape was verified.
 // components/site/CMSLink.tsx is the matching renderer.
 export const link: LinkType = ({
   appearances,
@@ -40,6 +40,16 @@ export const link: LinkType = ({
         type: "row",
         fields: [
           {
+            name: "type",
+            type: "radio",
+            admin: { layout: "horizontal", width: "50%" },
+            defaultValue: "reference",
+            options: [
+              { label: "Internal link", value: "reference" },
+              { label: "Custom URL", value: "custom" },
+            ],
+          },
+          {
             name: "newTab",
             type: "checkbox",
             admin: { style: { alignSelf: "flex-end" }, width: "50%" },
@@ -52,9 +62,20 @@ export const link: LinkType = ({
 
   const linkTypes: Field[] = [
     {
+      name: "reference",
+      type: "relationship",
+      admin: {
+        condition: (_, siblingData) => siblingData?.type === "reference",
+      },
+      label: "Document to link to",
+      relationTo: ["pages", "posts"],
+      required: true,
+    },
+    {
       name: "url",
       type: "text",
-      label: "URL",
+      admin: { condition: (_, siblingData) => siblingData?.type === "custom" },
+      label: "Custom URL",
       required: true,
     },
   ];

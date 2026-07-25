@@ -3,20 +3,24 @@ import * as React from "react";
 import type { VariantProps } from "class-variance-authority";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Page, Post } from "@/payload-types";
 
 type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
 type ButtonSize = VariantProps<typeof buttonVariants>["size"];
 
-// Matches lib/payload/fields/link.ts — URL only, no "internal doc reference"
-// variant (that needs a polymorphic relationship table this codebase
-// doesn't have yet; see that file's comment).
+// Matches lib/payload/fields/link.ts.
 export type CMSLinkType = {
   appearance?: string | null;
   children?: React.ReactNode;
   className?: string;
   label?: string | null;
   newTab?: boolean | null;
+  reference?: {
+    relationTo: "pages" | "posts";
+    value: Page | Post | string | number;
+  } | null;
   size?: ButtonSize | null;
+  type?: "custom" | "reference" | null;
   url?: string | null;
 };
 
@@ -27,18 +31,37 @@ const appearanceToVariant: Record<string, ButtonVariant> = {
   outline: "outline",
 };
 
+// Internal doc references resolve to this site's actual routes: pages at
+// "/<slug>" (root page's slug is "/" itself, see PageView), posts at
+// "/blog/<slug>" (see app/(app)/(site)/blog/[slug]).
+function hrefForReference(
+  relationTo: "pages" | "posts",
+  value: Page | Post | string | number,
+): string | undefined {
+  if (typeof value !== "object" || !value.slug) return undefined;
+  if (relationTo === "posts") return `/blog/${value.slug}`;
+  return value.slug === "/" ? "/" : `/${value.slug}`;
+}
+
 export const CMSLink: React.FC<CMSLinkType> = (props) => {
   const {
+    type,
     appearance = "inline",
     children,
     className,
     label,
     newTab,
+    reference,
     size,
     url,
   } = props;
 
-  if (!url) return null;
+  const href =
+    type === "reference" && reference
+      ? hrefForReference(reference.relationTo, reference.value)
+      : (url ?? undefined);
+
+  if (!href) return null;
 
   const newTabProps = newTab
     ? { rel: "noopener noreferrer", target: "_blank" }
@@ -46,7 +69,7 @@ export const CMSLink: React.FC<CMSLinkType> = (props) => {
 
   if (appearance === "inline") {
     return (
-      <Link className={cn(className)} href={url} {...newTabProps}>
+      <Link className={cn(className)} href={href} {...newTabProps}>
         {label}
         {children}
       </Link>
@@ -64,7 +87,7 @@ export const CMSLink: React.FC<CMSLinkType> = (props) => {
       size={size ?? undefined}
       variant={variant}
     >
-      <Link href={url} {...newTabProps}>
+      <Link href={href} {...newTabProps}>
         {label}
         {children}
       </Link>
