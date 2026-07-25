@@ -5,7 +5,11 @@ vi.mock("ai", () => ({
   tool: vi.fn(),
   jsonSchema: vi.fn(),
 }));
-vi.mock("@/lib/ai/provider", () => ({ getModel: vi.fn() }));
+vi.mock("@/lib/ai/provider", () => ({
+  getModel: vi.fn(),
+  getProviderChain: vi.fn(),
+  isRetryableProviderError: vi.fn(),
+}));
 vi.mock("@/lib/knowledge/provider", () => ({ getKnowledgeProvider: vi.fn() }));
 vi.mock("@/lib/ai/promptRegistry", () => ({ getActivePrompt: vi.fn() }));
 vi.mock("@/lib/ai/generativeTools", () => ({
@@ -20,7 +24,11 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { generateText } from "ai";
-import { getModel } from "@/lib/ai/provider";
+import {
+  getModel,
+  getProviderChain,
+  isRetryableProviderError,
+} from "@/lib/ai/provider";
 import { getKnowledgeProvider } from "@/lib/knowledge/provider";
 import { getActivePrompt } from "@/lib/ai/promptRegistry";
 import { generativeToolHandlers } from "@/lib/ai/generativeTools";
@@ -33,6 +41,8 @@ describe("getConciergeResponse", () => {
     vi.mocked(getModel)
       .mockReset()
       .mockReturnValue("fake-model" as never);
+    vi.mocked(getProviderChain).mockReset().mockReturnValue(["openai"]);
+    vi.mocked(isRetryableProviderError).mockReset().mockReturnValue(false);
     vi.mocked(getKnowledgeProvider).mockReset();
     vi.mocked(getActivePrompt).mockReset();
     vi.mocked(prisma.aiConversation.findFirst).mockReset();
@@ -66,7 +76,7 @@ describe("getConciergeResponse", () => {
     const result = await getConciergeResponse("session-1", "What do you sell?");
 
     expect(result).toEqual({ type: "text", text: "We sell widgets!" });
-    expect(getModel).toHaveBeenCalledWith("gpt-4o-mini");
+    expect(getModel).toHaveBeenCalledWith("gpt-4o-mini", "openai");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "fake-model",
@@ -176,7 +186,7 @@ describe("getConciergeResponse", () => {
 
     await getConciergeResponse("session-2", "Hello");
 
-    expect(getModel).toHaveBeenCalledWith(undefined);
+    expect(getModel).toHaveBeenCalledWith(undefined, "openai");
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({ temperature: undefined, maxTokens: undefined }),
     );

@@ -1,5 +1,9 @@
 import { generateText } from "ai";
-import { getModel } from "@/lib/ai/provider";
+import {
+  getModel,
+  getProviderChain,
+  isRetryableProviderError,
+} from "@/lib/ai/provider";
 import { getKnowledgeProvider } from "@/lib/knowledge/provider";
 import { getActivePrompt } from "@/lib/ai/promptRegistry";
 import { prisma } from "@/lib/db/client";
@@ -61,14 +65,16 @@ export async function getConciergeResponse(
     .filter((part): part is string => Boolean(part))
     .join("\n\n");
 
-  const result = await generateText({
-    model: getModel(promptConfig?.model ?? undefined),
-    system: systemPrompt,
-    prompt: userMessage,
-    temperature: promptConfig?.temperature ?? undefined,
-    maxTokens: promptConfig?.max_tokens ?? undefined,
-    tools: generativeTools,
-  });
+  const result = await generateWithFallback(
+    {
+      system: systemPrompt,
+      prompt: userMessage,
+      temperature: promptConfig?.temperature ?? undefined,
+      maxTokens: promptConfig?.max_tokens ?? undefined,
+      tools: generativeTools,
+    },
+    promptConfig?.model ?? undefined,
+  );
 
   const toolCall = result.toolCalls?.[0];
   const conciergeResult: ConciergeResult = toolCall
@@ -83,6 +89,49 @@ export async function getConciergeResponse(
   );
 
   return conciergeResult;
+}
+
+// Tries each provider in getProviderChain() in order. modelName (the
+// prompt's stored AiPromptConfig.model) only applies to the first
+// (primary/AI_PROVIDER) attempt — it's a provider-specific string, so a
+// fallback provider uses its own hardcoded default instead (see
+// isRetryableProviderError's doc comment in lib/ai/provider.ts). Only
+// falls back on a retryable (429) error and only while providers remain;
+// anything else propagates immediately.
+async function generateWithFallback(
+  params: {
+    system: string;
+    prompt: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools: typeof generativeTools;
+  },
+  modelName: string | undefined,
+) {
+  const chain = getProviderChain();
+
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
+    try {
+      return await generateText({
+        ...params,
+        model: getModel(i === 0 ? modelName : undefined, provider),
+      });
+    } catch (error) {
+      const hasMoreProviders = i < chain.length - 1;
+      if (hasMoreProviders && isRetryableProviderError(error)) {
+        console.warn(
+          `[concierge] provider "${provider}" hit a retryable error, falling back to next provider`,
+        );
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  // Unreachable: chain always has at least one entry (AI_PROVIDER), and the
+  // loop above always either returns or throws.
+  throw new Error("No AI provider configured");
 }
 
 async function runGenerativeTool(toolCall: {

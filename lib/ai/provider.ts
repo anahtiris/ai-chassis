@@ -2,7 +2,7 @@ import { openai, createOpenAI } from "@ai-sdk/openai";
 import { groq } from "@ai-sdk/groq";
 import { google } from "@ai-sdk/google";
 import { ollama } from "ollama-ai-provider";
-import type { LanguageModel } from "ai";
+import { APICallError, type LanguageModel } from "ai";
 
 // Pluggable AI provider — see docs/decisions.md "AI provider abstraction:
 // pluggable". The original project this toolkit generalized from was
@@ -23,8 +23,14 @@ const openrouter = createOpenAI({
 
 // modelName lets a caller override the default (e.g. from a per-prompt
 // AiPromptConfig.model value); omit it to use the provider's default.
-export function getModel(modelName?: string): LanguageModel {
-  const provider = process.env.AI_PROVIDER ?? "openai";
+// providerOverride lets a caller (the fallback chain below) request a
+// specific provider regardless of AI_PROVIDER, e.g. when retrying against
+// the next provider in the chain.
+export function getModel(
+  modelName?: string,
+  providerOverride?: string,
+): LanguageModel {
+  const provider = providerOverride ?? process.env.AI_PROVIDER ?? "openai";
 
   switch (provider) {
     case "openai":
@@ -43,4 +49,26 @@ export function getModel(modelName?: string): LanguageModel {
     default:
       throw new Error(`Unknown AI_PROVIDER: ${provider}`);
   }
+}
+
+// Ordered list of providers to try: AI_PROVIDER first, then
+// AI_PROVIDER_FALLBACK_ORDER (comma-separated, e.g. "groq,google,openrouter")
+// for the rest. Opt-in — with no fallback var set this is just [AI_PROVIDER],
+// same single-provider behavior as before this existed.
+export function getProviderChain(): string[] {
+  const primary = process.env.AI_PROVIDER ?? "openai";
+  const fallbacks = (process.env.AI_PROVIDER_FALLBACK_ORDER ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry && entry !== primary);
+
+  return [primary, ...fallbacks];
+}
+
+// A prompt's stored `model` value is provider-specific (e.g. "gpt-4o" means
+// nothing to Groq), so a caller falling back to a different provider should
+// not reuse it — this only identifies whether an error is worth falling
+// back for at all (quota/rate-limit), not which model to retry with.
+export function isRetryableProviderError(error: unknown): boolean {
+  return APICallError.isInstance(error) && error.statusCode === 429;
 }
