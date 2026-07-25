@@ -81,7 +81,10 @@ async function main() {
   const pages = [
     {
       title: "Welcome to Acme",
-      slug: "home",
+      // Must be "/" (not "home") — app/(app)/(site)/page.tsx looks up the
+      // site root by slug: "/" exactly. A different slug here silently
+      // creates an orphan page instead of populating the landing page.
+      slug: "/",
       aiConcierge: {
         enabled: true,
         suggestions: [
