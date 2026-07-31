@@ -8,6 +8,7 @@ build
 *.tsbuildinfo
 .DS_Store
 storybook-static
+*.sql
 
 # Claude Code: personal/machine-specific, not shared team config
 .claude/settings.local.json

@@ -136,7 +136,22 @@ export const Pages: CollectionConfig<"pages"> = {
       type: "date",
       admin: { position: "sidebar" },
     },
-    slugField(),
+    // Payload's default slugify strips any non-word/non-hyphen character —
+    // including "/" — down to an empty string, which then fails the slug
+    // field's required validation on create. The site-root landing page's
+    // slug is deliberately the literal "/" (see (site)/page.tsx), so that
+    // one value must survive slugify untouched; everything else falls
+    // through to Payload's normal behavior.
+    slugField({
+      slugify: ({ valueToSlugify }) =>
+        valueToSlugify === "/"
+          ? "/"
+          : (valueToSlugify
+              ?.trim()
+              .replace(/ /g, "-")
+              .replace(/[^\w-]+/g, "")
+              .toLowerCase() ?? ""),
+    }),
   ],
   hooks: {
     beforeChange: [populatePublishedAt],
