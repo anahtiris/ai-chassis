@@ -8,7 +8,7 @@ import {
 } from "@payloadcms/richtext-lexical";
 import { buildConfig } from "payload";
 import { seoPlugin } from "@payloadcms/plugin-seo";
-import type { GenerateTitle, GenerateURL } from "@payloadcms/plugin-seo/types";
+import type { GenerateURL } from "@payloadcms/plugin-seo/types";
 import { redirectsPlugin } from "@payloadcms/plugin-redirects";
 import { nestedDocsPlugin } from "@payloadcms/plugin-nested-docs";
 import { formBuilderPlugin } from "@payloadcms/plugin-form-builder";
@@ -29,6 +29,7 @@ import { bridgeFormSubmissionToPrisma } from "@/lib/payload/hooks/bridgeFormSubm
 import { searchFields } from "@/lib/payload/search/fieldOverrides";
 import { beforeSyncWithSearch } from "@/lib/payload/search/beforeSync";
 import { lexicalToPlainText } from "@/lib/payload/lexicalToPlainText";
+import { generateSeoTitle, generateSeoDescription } from "@/lib/ai/seoGenerate";
 import type { Page, Post } from "@/payload-types";
 
 // CMS-managed content only — see docs/decisions.md "Admin portal scope" and
@@ -53,15 +54,14 @@ const ragEnabled = process.env.RAG_ENABLED === "true";
 const storageEnabled = Boolean(process.env.STORAGE_BUCKET);
 
 // Backs the "Generate" buttons on Pages/Posts' SEO tab fields
-// (MetaTitleField/PreviewField's `hasGenerateFn: true`, in
-// lib/payload/collections/{pages,posts}.ts) — those buttons call whatever
-// this plugin registers, so it has to actually be registered for them to do
-// anything. Generic by design: no fixed site name or URL structure baked
-// in beyond NEXT_PUBLIC_SERVER_URL, unlike the original project's version
+// (MetaTitleField/MetaDescriptionField/PreviewField's `hasGenerateFn: true`,
+// in lib/payload/collections/{pages,posts}.ts) — those buttons call
+// whatever this plugin registers, so it has to actually be registered for
+// them to do anything. generateTitle/generateDescription (lib/ai/seoGenerate.ts)
+// call the same pluggable getModel() the concierge uses. generateURL stays
+// static — no LLM involved, no fixed site name or URL structure baked in
+// beyond NEXT_PUBLIC_SERVER_URL, unlike the original project's version
 // (`Payload Website Template`, a hardcoded `/industries/<slug>` shape).
-const generateTitle: GenerateTitle<Post | Page> = ({ doc }) =>
-  doc?.title ? `${doc.title} | ai-chassis` : "ai-chassis";
-
 const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
   const base = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:4000";
   return doc?.slug ? `${base}/${doc.slug}` : base;
@@ -218,7 +218,11 @@ export default buildConfig({
       generateURL: (docs) =>
         docs.reduce((url, doc) => `${url}/${doc.slug}`, ""),
     }),
-    seoPlugin({ generateTitle, generateURL }),
+    seoPlugin({
+      generateTitle: generateSeoTitle,
+      generateDescription: generateSeoDescription,
+      generateURL,
+    }),
     // Form-builder's own `forms`/`form-submissions` collections, generic
     // out of the box (payment fields disabled — no payment integration in
     // this toolkit) plus a richer confirmation-message editor. The one

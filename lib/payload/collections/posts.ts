@@ -116,7 +116,7 @@ export const Posts: CollectionConfig<"posts"> = {
             }),
             MetaTitleField({ hasGenerateFn: true }),
             MetaImageField({ relationTo: "media" }),
-            MetaDescriptionField({}),
+            MetaDescriptionField({ hasGenerateFn: true }),
             PreviewField({
               hasGenerateFn: true,
               titlePath: "meta.title",
