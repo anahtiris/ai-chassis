@@ -111,8 +111,9 @@ generalize arbitrary business-entity CRUD.
   (simplest, cheapest, right choice for small content volumes), RAG as an
   opt-in upgrade once content volume grows past what comfortably fits in a
   prompt.
-- **Storage:** pluggable, S3-compatible interface, not locked to one cloud
-  provider.
+- **Storage:** local disk by default; set `STORAGE_BUCKET` (+ credentials) to
+  switch Media uploads to any S3-compatible provider instead (AWS S3, R2,
+  Spaces, MinIO) — see `.env.example`'s `STORAGE_*` vars.
 - **RBAC:** a generic role/permission shape, not hardcoded to a fixed set of
   roles.
 

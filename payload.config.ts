@@ -13,6 +13,7 @@ import { redirectsPlugin } from "@payloadcms/plugin-redirects";
 import { nestedDocsPlugin } from "@payloadcms/plugin-nested-docs";
 import { formBuilderPlugin } from "@payloadcms/plugin-form-builder";
 import { searchPlugin } from "@payloadcms/plugin-search";
+import { s3Storage } from "@payloadcms/storage-s3";
 import payloadcmsVectorize from "payloadcms-vectorize";
 import { createPostgresVectorIntegration } from "@payloadcms-vectorize/pg";
 import type { ToKnowledgePoolFn } from "payloadcms-vectorize";
@@ -43,6 +44,13 @@ import type { Page, Post } from "@/payload-types";
 // caveat.
 
 const ragEnabled = process.env.RAG_ENABLED === "true";
+
+// Media stays on local disk (see lib/payload/collections/media.ts) unless
+// STORAGE_BUCKET is set, in which case s3Storage takes over and disables
+// local storage on the collection automatically. forcePathStyle + an
+// optional STORAGE_ENDPOINT keep this working against any S3-compatible
+// target (MinIO, R2, DigitalOcean Spaces), not just AWS.
+const storageEnabled = Boolean(process.env.STORAGE_BUCKET);
 
 // Backs the "Generate" buttons on Pages/Posts' SEO tab fields
 // (MetaTitleField/PreviewField's `hasGenerateFn: true`, in
@@ -262,6 +270,23 @@ export default buildConfig({
         fields: ({ defaultFields }) => [...defaultFields, ...searchFields],
       },
     }),
+    ...(storageEnabled
+      ? [
+          s3Storage({
+            collections: { media: true },
+            bucket: process.env.STORAGE_BUCKET!,
+            config: {
+              credentials: {
+                accessKeyId: process.env.STORAGE_ACCESS_KEY_ID!,
+                secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY!,
+              },
+              region: process.env.STORAGE_REGION,
+              endpoint: process.env.STORAGE_ENDPOINT || undefined,
+              forcePathStyle: true,
+            },
+          }),
+        ]
+      : []),
     ...(vectorIntegration
       ? [
           payloadcmsVectorize({
