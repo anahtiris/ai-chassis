@@ -32,7 +32,9 @@ base.
 ## Getting started
 
 Create the database and Prisma's `app` schema first (Payload uses Postgres's
-default `public` schema):
+default `public` schema). `ai_chassis_dev` below is just an example name —
+pick whatever fits your project, as long as it matches `DATABASE_URL` in the
+env files you set up next:
 
 ```bash
 createdb ai_chassis_dev
