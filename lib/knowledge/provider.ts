@@ -12,6 +12,7 @@
 import { getVectorizedPayload } from "payloadcms-vectorize";
 import { getPayloadClient } from "@/lib/payload/client";
 import { lexicalToPlainText } from "@/lib/payload/lexicalToPlainText";
+import { isWebSearchConfigured, searchWeb } from "./webSearch";
 
 export interface KnowledgeChunk {
   content: string;
@@ -99,7 +100,34 @@ class RagProvider implements KnowledgeProvider {
   }
 }
 
+// Wraps another provider: falls back to a live web search (see
+// lib/knowledge/webSearch.ts) when the base provider finds nothing for a
+// query — most relevant under RagProvider, whose similarity search can
+// legitimately come back empty for questions the indexed content doesn't
+// cover. Only applied when a web search provider is actually configured;
+// otherwise getKnowledgeProvider() returns the base provider unwrapped, the
+// same default-off pattern as RAG/storage.
+class WebSearchFallbackProvider implements KnowledgeProvider {
+  constructor(private readonly base: KnowledgeProvider) {}
+
+  async getRelevantKnowledge(query: string): Promise<KnowledgeChunk[]> {
+    const chunks = await this.base.getRelevantKnowledge(query);
+    if (chunks.length > 0) return chunks;
+
+    try {
+      return await searchWeb(query);
+    } catch (error) {
+      console.warn("[knowledge] web search fallback failed:", error);
+      return [];
+    }
+  }
+}
+
 export function getKnowledgeProvider(): KnowledgeProvider {
   const ragEnabled = process.env.RAG_ENABLED === "true";
-  return ragEnabled ? new RagProvider() : new DirectInjectionProvider();
+  const base: KnowledgeProvider = ragEnabled
+    ? new RagProvider()
+    : new DirectInjectionProvider();
+
+  return isWebSearchConfigured() ? new WebSearchFallbackProvider(base) : base;
 }

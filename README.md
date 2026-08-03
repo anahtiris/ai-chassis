@@ -135,9 +135,11 @@ generalize arbitrary business-entity CRUD.
   version that served it, for reproducibility.
 - **AI concierge:** `lib/ai/concierge.ts`'s `getConciergeResponse()` grounds
   replies in the active knowledge provider (direct injection by default, RAG
-  opt-in — see below) and supports generative-ui-kit tool-calling
-  (table/dashboard/form/question/diagram). Tool-calling reliability depends
-  on the underlying model.
+  opt-in — see below), with an optional live web search fallback for queries
+  the knowledge provider finds nothing for (set `WEB_SEARCH_PROVIDER` and
+  credentials, unset by default — see `.env.example`). Also supports
+  generative-ui-kit tool-calling (table/dashboard/form/question/diagram).
+  Tool-calling reliability depends on the underlying model.
 - **CMS:** Pages, Posts, Categories, Media in `/admin/cms`, with SEO fields,
   versioned drafts, and per-document AI Concierge suggestion overrides.
   Public routes render published content under `app/(app)/(site)/` with a
