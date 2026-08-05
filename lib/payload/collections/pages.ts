@@ -10,6 +10,7 @@ import {
 import { authenticated, authenticatedOrPublished } from "../access";
 import { populatePublishedAt } from "../hooks/populatePublishedAt";
 import { createRevalidateHooks } from "../hooks/revalidateCollection";
+import { createSocialPublishHook } from "../hooks/publishToSocialWebhook";
 import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggestions";
 import { Content } from "../blocks/content/config";
 import { MediaBlock } from "../blocks/media/config";
@@ -29,6 +30,7 @@ const {
   afterChange: revalidateAfterChange,
   afterDelete: revalidateAfterDelete,
 } = createRevalidateHooks("pages");
+const socialPublishAfterChange = createSocialPublishHook("pages");
 
 export const Pages: CollectionConfig<"pages"> = {
   slug: "pages",
@@ -155,7 +157,7 @@ export const Pages: CollectionConfig<"pages"> = {
   ],
   hooks: {
     beforeChange: [populatePublishedAt],
-    afterChange: [revalidateAfterChange],
+    afterChange: [revalidateAfterChange, socialPublishAfterChange],
     afterDelete: [revalidateAfterDelete],
   },
   versions: {

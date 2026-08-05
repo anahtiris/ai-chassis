@@ -123,9 +123,10 @@ generalize arbitrary business-entity CRUD.
   login, Microsoft Entra ID as an optional second provider. First user to
   sign in against an empty database is auto-provisioned as owner; everyone
   after needs an existing `User` row.
-- **Admin portal:** `/admin` hub linking to six permission-gated pages —
-  users, audit-logs, form-results, ai/prompts, ai/conversations, analytics —
-  plus Storybook and API Docs links and personal account settings.
+- **Admin portal:** `/admin` hub linking to seven permission-gated pages —
+  users, audit-logs, form-results, ai/prompts, ai/conversations, ai/content,
+  analytics — plus Storybook and API Docs links and personal account
+  settings.
   `/admin/users` supports per-user profile/permission editing and soft
   delete; owner accounts are editable only by themselves. Every
   create/edit/delete/grant/revoke writes an `AuditLog` entry.
@@ -140,11 +141,22 @@ generalize arbitrary business-entity CRUD.
   credentials, unset by default — see `.env.example`). Also supports
   generative-ui-kit tool-calling (table/dashboard/form/question/diagram).
   Tool-calling reliability depends on the underlying model.
+- **AI content generation:** `/admin/ai/content` — give it a topic, it
+  generates a draft blog post (title, meta description, headed sections) via
+  `lib/ai/contentGenerate.ts` and creates it as a **draft** Post for review
+  in `/admin/cms` — never published automatically. Uses the
+  `content-generator-system-prompt` `AiPromptConfig` if one exists (same
+  editable-without-code mechanism as the concierge's prompt), otherwise a
+  generic default.
 - **CMS:** Pages, Posts, Categories, Media in `/admin/cms`, with SEO fields,
   versioned drafts, and per-document AI Concierge suggestion overrides.
   Public routes render published content under `app/(app)/(site)/` with a
   floating concierge widget where enabled. Single sign-on: signing in at
   `/admin/login` also authenticates `/admin/cms`, no separate Payload login.
+  Optional social webhook: set `SOCIAL_PUBLISH_WEBHOOK_URL` to POST a
+  title/url/excerpt payload on publish, for an external tool (Zapier, Make,
+  n8n) to fan out to social platforms — unset by default, no per-platform
+  OAuth in this app.
 - **Plugins:** redirects, nested categories (with breadcrumbs), search index
   over posts, and a visual form builder — submissions from either the
   form-builder or a page's attached form land in the same

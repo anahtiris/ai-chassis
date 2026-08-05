@@ -37,6 +37,7 @@ export default async function AdminShellLayout({
     canViewFormResults ? "formResults" : null,
     canManageAi ? "aiPrompts" : null,
     canManageAi ? "aiConversations" : null,
+    canManageAi ? "aiContent" : null,
     canViewAnalytics ? "analytics" : null,
   ].filter((key): key is string => key !== null);
 

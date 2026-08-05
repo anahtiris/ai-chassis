@@ -10,57 +10,16 @@
 import { getPayload } from "payload";
 import config from "@payload-config";
 import type { Post, Page } from "../payload-types";
-
-// --- minimal lexical richText builders ---------------------------------
-type LexNode = { type: string; version: number; [k: string]: unknown };
-
-function text(value: string): LexNode {
-  return {
-    type: "text",
-    detail: 0,
-    format: 0,
-    mode: "normal",
-    style: "",
-    text: value,
-    version: 1,
-  };
-}
-
-function paragraph(value: string): LexNode {
-  return {
-    type: "paragraph",
-    children: [text(value)],
-    direction: "ltr",
-    format: "",
-    indent: 0,
-    textFormat: 0,
-    version: 1,
-  };
-}
-
-function heading(value: string, tag: "h1" | "h2" | "h3" = "h2"): LexNode {
-  return {
-    type: "heading",
-    tag,
-    children: [text(value)],
-    direction: "ltr",
-    format: "",
-    indent: 0,
-    version: 1,
-  };
-}
+import {
+  text,
+  paragraph,
+  heading,
+  richText as buildRichText,
+} from "../lib/payload/lexicalBuilders";
+import type { LexNode } from "../lib/payload/lexicalBuilders";
 
 function richText(...children: LexNode[]): NonNullable<Post["content"]> {
-  return {
-    root: {
-      type: "root",
-      children,
-      direction: "ltr",
-      format: "",
-      indent: 0,
-      version: 1,
-    },
-  } as unknown as NonNullable<Post["content"]>;
+  return buildRichText(...children) as unknown as NonNullable<Post["content"]>;
 }
 
 // Wraps richText() output as a single full-width `content` block — Pages'

@@ -18,6 +18,7 @@ import { authenticated, authenticatedOrPublished } from "../access";
 import { populatePublishedAt } from "../hooks/populatePublishedAt";
 import { populateAuthors } from "../hooks/populateAuthors";
 import { createRevalidateHooks } from "../hooks/revalidateCollection";
+import { createSocialPublishHook } from "../hooks/publishToSocialWebhook";
 import { defaultPageConciergeSuggestions } from "../concierge/defaultPageSuggestions";
 import { generatePreviewPath } from "../generatePreviewPath";
 
@@ -32,6 +33,7 @@ const {
   afterChange: revalidateAfterChange,
   afterDelete: revalidateAfterDelete,
 } = createRevalidateHooks("posts");
+const socialPublishAfterChange = createSocialPublishHook("posts");
 
 export const Posts: CollectionConfig<"posts"> = {
   slug: "posts",
@@ -196,7 +198,7 @@ export const Posts: CollectionConfig<"posts"> = {
   hooks: {
     beforeChange: [populatePublishedAt],
     afterRead: [populateAuthors],
-    afterChange: [revalidateAfterChange],
+    afterChange: [revalidateAfterChange, socialPublishAfterChange],
     afterDelete: [revalidateAfterDelete],
   },
   versions: {

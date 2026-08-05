@@ -23,6 +23,7 @@ import {
   Bot,
   MessagesSquare,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 import { t, tCommon } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
     href: "/admin/ai/conversations",
     icon: MessagesSquare,
   },
+  { key: "aiContent", href: "/admin/ai/content", icon: Sparkles },
   { key: "analytics", href: "/admin/analytics", icon: BarChart3 },
 ];
 
