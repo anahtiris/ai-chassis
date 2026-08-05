@@ -308,6 +308,15 @@ export default async function AiPromptsPage() {
                   placeholder="concierge-system-prompt"
                   required
                 />
+                <p className="text-muted-foreground text-xs">
+                  Known keys a feature looks for by name:{" "}
+                  <code>concierge-system-prompt</code> (AI concierge),{" "}
+                  <code>content-generator-system-prompt</code> (AI content
+                  generator at{" "}
+                  <span className="font-mono">/admin/ai/content</span>). Any
+                  other key just needs a matching name wherever a fork reads it
+                  via <code>getActivePrompt()</code>.
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="new-prompt-name">Name</Label>
