@@ -11,7 +11,6 @@ import { getPayload } from "payload";
 import config from "@payload-config";
 import type { Post, Page } from "../payload-types";
 import {
-  text,
   paragraph,
   heading,
   richText as buildRichText,

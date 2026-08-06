@@ -7,6 +7,12 @@ import type { KnowledgeChunk } from "./provider";
 
 type WebSearchProviderName = "tavily" | "google";
 
+// Bounds how long a search can stall the concierge request that triggered
+// it — without this, an unresponsive search host holds the connection open
+// until undici's 300s default. On timeout the fetch rejects and
+// WebSearchFallbackProvider degrades to "no context" rather than hanging.
+const SEARCH_TIMEOUT_MS = 8000;
+
 function getWebSearchProviderName(): WebSearchProviderName {
   return (process.env.WEB_SEARCH_PROVIDER as WebSearchProviderName) ?? "tavily";
 }
@@ -42,14 +48,17 @@ export async function searchWeb(query: string): Promise<KnowledgeChunk[]> {
 }
 
 async function searchTavily(query: string): Promise<KnowledgeChunk[]> {
+  // Tavily authenticates via an Authorization: Bearer header — the older
+  // `api_key` body field is gone from the current API
+  // (docs.tavily.com/api-reference/endpoint/search).
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: process.env.TAVILY_API_KEY,
-      query,
-      max_results: 5,
-    }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
+    },
+    body: JSON.stringify({ query, max_results: 5 }),
+    signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -81,6 +90,7 @@ async function searchGoogle(query: string): Promise<KnowledgeChunk[]> {
 
   const res = await fetch(
     `https://www.googleapis.com/customsearch/v1?${params.toString()}`,
+    { signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) },
   );
 
   if (!res.ok) {

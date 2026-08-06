@@ -53,6 +53,19 @@ const ragEnabled = process.env.RAG_ENABLED === "true";
 // target (MinIO, R2, DigitalOcean Spaces), not just AWS.
 const storageEnabled = Boolean(process.env.STORAGE_BUCKET);
 
+// Static keys are optional. Passing a `credentials` object to the AWS SDK
+// at all short-circuits its default credential provider chain, so a deploy
+// running under an instance/task IAM role (ECS, EC2, EKS — no static keys
+// anywhere) must get no `credentials` key rather than one full of
+// undefineds. Only set it when both halves are actually present.
+const storageCredentials =
+  process.env.STORAGE_ACCESS_KEY_ID && process.env.STORAGE_SECRET_ACCESS_KEY
+    ? {
+        accessKeyId: process.env.STORAGE_ACCESS_KEY_ID,
+        secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY,
+      }
+    : undefined;
+
 // Backs the "Generate" buttons on Pages/Posts' SEO tab fields
 // (MetaTitleField/MetaDescriptionField/PreviewField's `hasGenerateFn: true`,
 // in lib/payload/collections/{pages,posts}.ts) — those buttons call
@@ -280,10 +293,9 @@ export default buildConfig({
             collections: { media: true },
             bucket: process.env.STORAGE_BUCKET!,
             config: {
-              credentials: {
-                accessKeyId: process.env.STORAGE_ACCESS_KEY_ID!,
-                secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY!,
-              },
+              ...(storageCredentials
+                ? { credentials: storageCredentials }
+                : {}),
               region: process.env.STORAGE_REGION,
               endpoint: process.env.STORAGE_ENDPOINT || undefined,
               forcePathStyle: true,
