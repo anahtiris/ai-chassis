@@ -74,8 +74,8 @@ pnpm payload:migrate          # applies it
 ```
 
 Then sign in at `/admin/login` with whatever email/password you just
-seeded. Microsoft Entra ID is optional — only fill in
-`AUTH_MICROSOFT_ENTRA_ID_*` if a project actually needs it.
+seeded. External identity providers are all optional — see "Identity
+providers (opt-in)" below.
 
 Seed a few sample CMS documents to see the public site + AI concierge end to
 end:
@@ -120,9 +120,12 @@ generalize arbitrary business-entity CRUD.
 ## Features reference
 
 - **Auth:** Auth.js v5, Credentials (email/password) as the default admin
-  login, Microsoft Entra ID as an optional second provider. First user to
-  sign in against an empty database is auto-provisioned as owner; everyone
-  after needs an existing `User` row.
+  login, plus any number of optional external IdPs — Microsoft Entra ID has a
+  dedicated provider, and one generic OIDC entry covers Keycloak, Authentik,
+  Okta, Auth0, Google Workspace and anything else OIDC-compliant. See
+  "Identity providers (opt-in)" below. First user to sign in against an empty
+  database is auto-provisioned as owner; everyone after needs an existing
+  `User` row.
 - **Admin portal:** `/admin` hub linking to seven permission-gated pages —
   users, audit-logs, form-results, ai/prompts, ai/conversations, ai/content,
   analytics — plus Storybook and API Docs links and personal account
@@ -166,6 +169,53 @@ generalize arbitrary business-entity CRUD.
   directly.
 - **UI kit:** Tailwind v4 + a hand-written shadcn/ui-style component kit
   (`components/ui/`), with Storybook stories for every primitive.
+
+### Identity providers (opt-in)
+
+Credentials (email/password) is the default and needs no setup. Each
+external IdP is added by env var alone — no code change, and each one only
+appears as a button on `/admin/login` once configured.
+
+**Microsoft Entra ID** keeps its own dedicated provider, because Auth.js's
+built-in handles Entra-specific quirks a generic OIDC entry can't (it
+rewrites the `{tenantid}` placeholder in Entra's discovery document, requests
+the `User.Read` scope, and inlines the Graph profile photo):
+
+```bash
+AUTH_MICROSOFT_ENTRA_ID_ID=
+AUTH_MICROSOFT_ENTRA_ID_SECRET=
+AUTH_MICROSOFT_ENTRA_ID_ISSUER=https://login.microsoftonline.com/<tenant-id>/v2.0
+```
+
+**Everything else OIDC-compliant** — Keycloak, Authentik, Okta, Auth0,
+Zitadel, Google Workspace — goes through one generic entry. Only the issuer
+changes:
+
+```bash
+AUTH_OIDC_ISSUER=https://keycloak.example.com/realms/my-realm
+AUTH_OIDC_ID=
+AUTH_OIDC_SECRET=
+AUTH_OIDC_NAME=Sign in with Keycloak   # button label, optional
+```
+
+The callback URL to register with the IdP is
+`<NEXT_PUBLIC_SERVER_URL>/api/auth/callback/oidc`. To wire up a second
+generic IdP, copy the block in `auth.ts` with a different `id` — the id is
+part of the callback URL and is stored in `UserIdentity.provider`, so it has
+to stay stable once anyone has signed in with it.
+
+**Account linking.** Sign-ins are matched to a `User` by the IdP's own
+immutable subject id, stored in `UserIdentity` — not by email. Email is used
+exactly once, to link an IdP account to an already-provisioned `User` the
+first time it signs in, and only when the claim is trustworthy: the provider
+asserted `email_verified`, or the provider is listed in
+`AUTH_TRUSTED_EMAIL_PROVIDERS` (comma-separated, defaults to
+`microsoft-entra-id`, which emits no `email_verified` claim but is
+tenant-scoped and operator-controlled). Without this, any configured IdP
+could assert an owner's address and take over that account. Existing Entra
+users predating the `UserIdentity` table are linked automatically on their
+next sign-in. Completing OAuth still never auto-provisions a new account —
+the `User` row must already exist, seeded or created in `/admin/users`.
 
 ### RAG (opt-in)
 

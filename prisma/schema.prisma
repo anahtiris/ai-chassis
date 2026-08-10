@@ -40,8 +40,38 @@ model User {
   created_at    DateTime         @default(now())
   archived_at   DateTime?
   permissions   UserPermission[]
+  identities    UserIdentity[]
 
   @@map("users")
+  @@schema("app")
+}
+
+// One row per (external IdP, account) pair that has been linked to a User.
+// Exists because email alone is not an identity: with more than one OAuth
+// provider configured, matching a sign-in to a User by email means whichever
+// IdP is easiest to get an account at can claim any address — including an
+// owner's. The provider's own immutable subject id is the stable key; email
+// is only ever a hint used once, at link time, under the rules in
+// lib/auth/identity.ts.
+//
+// Deliberately not Auth.js's `Account` model: this toolkit runs the JWT
+// session strategy with no adapter (see auth.ts), so it needs identity
+// linkage but none of the token/session persistence an adapter would add.
+model UserIdentity {
+  id                  String   @id @default(uuid())
+  user_id             String
+  user                User     @relation(fields: [user_id], references: [id])
+  // Auth.js provider id — "microsoft-entra-id", "oidc", etc. Matches the
+  // `id` of the entry in auth.ts's providers array.
+  provider            String
+  // The provider's own stable subject identifier for this account (OIDC
+  // `sub`). Immutable at the IdP, unlike email.
+  provider_account_id String
+  created_at          DateTime @default(now())
+
+  @@unique([provider, provider_account_id])
+  @@index([user_id])
+  @@map("user_identities")
   @@schema("app")
 }
 
