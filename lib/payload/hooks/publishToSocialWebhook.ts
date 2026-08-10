@@ -11,6 +11,13 @@ import type { CollectionAfterChangeHook } from "payload";
 // typo fix doesn't re-post. Skips during seeding via the same
 // context.disableRevalidate flag createRevalidateHooks respects (see
 // scripts/seed-content.ts).
+//
+// The POST is awaited inside afterChange, so it's bounded by a timeout: an
+// unresponsive webhook host would otherwise hold the editor's Publish
+// request open until undici's 300s default. On timeout the fetch rejects
+// into the catch below, the warning is logged, and the save completes.
+const WEBHOOK_TIMEOUT_MS = 5000;
+
 export function createSocialPublishHook(
   collectionSlug: "pages" | "posts",
 ): CollectionAfterChangeHook {
@@ -47,6 +54,7 @@ export function createSocialPublishHook(
           imageId: doc.meta?.image ?? null,
           publishedAt: doc.publishedAt ?? null,
         }),
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
       });
       if (!res.ok) {
         payload.logger.warn(
