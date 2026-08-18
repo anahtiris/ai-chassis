@@ -1329,7 +1329,7 @@ export interface AiConcierge {
    * How much of the conversation the concierge remembers. 'None' reproduces the original stateless behavior.
    */
   memory?: {
-    strategy?: ('none' | 'window') | null;
+    strategy?: ('none' | 'window' | 'summary') | null;
     keepRecentTurns?: number | null;
     /**
      * Approximate context budget, counted in characters (roughly four characters per token).

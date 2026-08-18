@@ -1,4 +1,5 @@
 import { NoneStrategy, WindowStrategy } from "./strategies";
+import { SummaryStrategy } from "./summary";
 import type { MemorySettings, MemoryStrategy } from "./types";
 
 // The seam, matching lib/ai/provider.ts's getModel() and
@@ -13,6 +14,8 @@ export function getMemoryStrategy(settings: MemorySettings): MemoryStrategy {
   switch (settings.strategy) {
     case "window":
       return new WindowStrategy(settings.keepRecentTurns);
+    case "summary":
+      return new SummaryStrategy(settings);
     case "none":
       return new NoneStrategy();
     default:

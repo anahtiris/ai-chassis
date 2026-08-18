@@ -138,6 +138,20 @@ export async function getConciergeResponse(
     promptConfig,
   );
 
+  // After the reply exists, so the summarizer never delays a response. The
+  // turn that triggers compaction therefore briefly exceeds the budget —
+  // the accepted cost of not making a user wait on a second model call.
+  const compacted = await strategy.compact(history);
+  if (compacted) {
+    await prisma.aiConversation.update({
+      where: { session_id: sessionId },
+      data: {
+        summary: compacted.summary,
+        summary_turns: compacted.summaryTurns,
+      },
+    });
+  }
+
   return conciergeResult;
 }
 

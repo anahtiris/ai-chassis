@@ -16,7 +16,9 @@ function positiveNumber(value: unknown, fallback: number): number {
 }
 
 function strategyOrDefault(value: unknown): MemorySettings["strategy"] {
-  return value === "window" || value === "none" ? value : DEFAULTS.strategy;
+  return value === "window" || value === "none" || value === "summary"
+    ? value
+    : DEFAULTS.strategy;
 }
 
 // Precedence: the AiConcierge global (operator-editable at /admin/cms, no

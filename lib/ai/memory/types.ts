@@ -24,7 +24,7 @@ export interface PreparedHistory {
 }
 
 export interface MemorySettings {
-  strategy: "none" | "window";
+  strategy: "none" | "window" | "summary";
   // Character budget over the serialized history — a rough four-characters-
   // per-token proxy, deliberately imprecise. Unused by the strategies in
   // strategies.ts; the summary strategy consumes it.

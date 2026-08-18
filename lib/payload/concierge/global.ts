@@ -69,6 +69,10 @@ export const AiConcierge: GlobalConfig = {
           options: [
             { label: "None — only the current message", value: "none" },
             { label: "Window — the most recent messages", value: "window" },
+            {
+              label: "Summary — roll older messages into a summary",
+              value: "summary",
+            },
           ],
         },
         {
