@@ -217,6 +217,35 @@ users predating the `UserIdentity` table are linked automatically on their
 next sign-in. Completing OAuth still never auto-provisions a new account —
 the `User` row must already exist, seeded or created in `/admin/users`.
 
+### Conversation memory (opt-in)
+
+By default the concierge is stateless: it sees only the current message.
+Turn memory on at `/admin/cms` → Globals → AI Concierge → Conversation
+memory. Three strategies:
+
+- **None** (default) — current message only. No history is sent.
+- **Window** — the most recent N messages verbatim. No extra model call,
+  deterministic, free. Stored history is never rewritten, so
+  `/admin/ai/conversations` keeps the full transcript either way.
+- **Summary** — once history passes the character budget, the oldest
+  messages are folded into a rolling summary and stop being sent. Costs one
+  extra model call, and only on the turn that crosses the budget. That call
+  runs _after_ the user's reply is returned, so it never adds latency to a
+  response.
+
+The summarizer reads the `chat-summarizer-system-prompt` `AiPromptConfig`
+if one exists, so its wording, model and temperature are editable at
+`/admin/ai/prompts` without a deploy — point it at a cheap model, since
+summarizing does not need the concierge's.
+
+`CHAT_MEMORY_STRATEGY`, `CHAT_MEMORY_KEEP_TURNS` and
+`CHAT_MEMORY_MAX_CHARS` act as fallbacks for a fresh fork; anything set in
+the global wins over them.
+
+The widget stores its session id in `sessionStorage`, so a conversation
+survives a page reload but not a new browsing session — history on a public
+site should not follow the next visitor on a shared machine.
+
 ### RAG (opt-in)
 
 Direct content injection is the default knowledge provider and needs none
