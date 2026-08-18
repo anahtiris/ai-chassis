@@ -14,7 +14,8 @@ import {
   GENERATIVE_TOOL_GUIDANCE,
 } from "@/lib/ai/generativeTools";
 import { parseStoredHistory } from "@/lib/ai/memory/parse";
-import { NoneStrategy } from "@/lib/ai/memory/strategies";
+import { getMemoryStrategy } from "@/lib/ai/memory/provider";
+import { getMemorySettings } from "@/lib/ai/memory/settings";
 import type { ConversationTurn } from "@/lib/ai/memory/types";
 import type { Prisma } from "@prisma/client";
 
@@ -67,7 +68,7 @@ export async function getConciergeResponse(
     conversation?.summary ?? null,
     conversation?.summary_turns ?? 0,
   );
-  const strategy = new NoneStrategy();
+  const strategy = getMemoryStrategy(await getMemorySettings());
   const prepared = strategy.prepare(history);
 
   const knowledge =
