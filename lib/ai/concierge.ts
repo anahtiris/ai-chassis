@@ -13,6 +13,9 @@ import {
   generativeToolHandlers,
   GENERATIVE_TOOL_GUIDANCE,
 } from "@/lib/ai/generativeTools";
+import { parseStoredHistory } from "@/lib/ai/memory/parse";
+import { NoneStrategy } from "@/lib/ai/memory/strategies";
+import type { ConversationTurn } from "@/lib/ai/memory/types";
 import type { Prisma } from "@prisma/client";
 
 // The one AiPromptConfig row this reads — matches the example key shown as
@@ -54,6 +57,19 @@ export async function getConciergeResponse(
 ): Promise<ConciergeResult> {
   const promptConfig = await getActivePrompt(CONCIERGE_PROMPT_KEY);
 
+  // One read per turn. appendToConversation() below takes the row found
+  // here rather than querying again.
+  const conversation = await prisma.aiConversation.findUnique({
+    where: { session_id: sessionId },
+  });
+  const history = parseStoredHistory(
+    conversation?.messages,
+    conversation?.summary ?? null,
+    conversation?.summary_turns ?? 0,
+  );
+  const strategy = new NoneStrategy();
+  const prepared = strategy.prepare(history);
+
   const knowledge =
     await getKnowledgeProvider().getRelevantKnowledge(userMessage);
 
@@ -70,6 +86,9 @@ export async function getConciergeResponse(
 
   const systemPrompt = [
     promptConfig?.prompt_text ?? DEFAULT_SYSTEM_PROMPT,
+    prepared.summary
+      ? `Summary of earlier conversation:\n${prepared.summary}`
+      : null,
     trusted.length > 0 ? `Context:\n${bullets(trusted)}` : null,
     untrusted.length > 0
       ? [
@@ -93,7 +112,10 @@ export async function getConciergeResponse(
   const result = await generateWithFallback(
     {
       system: systemPrompt,
-      prompt: userMessage,
+      messages: [
+        ...prepared.turns,
+        { role: "user" as const, content: userMessage },
+      ],
       temperature: promptConfig?.temperature ?? undefined,
       maxTokens: promptConfig?.max_tokens ?? undefined,
       tools: generativeTools,
@@ -109,6 +131,7 @@ export async function getConciergeResponse(
 
   await appendToConversation(
     sessionId,
+    conversation,
     userMessage,
     conciergeResult,
     promptConfig,
@@ -129,7 +152,7 @@ export async function getConciergeResponse(
 async function generateWithFallback(
   params: {
     system: string;
-    prompt: string;
+    messages: ConversationTurn[];
     temperature?: number;
     maxTokens?: number;
     tools: typeof generativeTools;
@@ -193,16 +216,16 @@ async function runGenerativeTool(toolCall: {
   };
 }
 
+// Takes the row getConciergeResponse already loaded rather than querying
+// again — one read per turn, and the row it appends to is guaranteed to be
+// the same one the history was prepared from.
 async function appendToConversation(
   sessionId: string,
+  existing: { id: string; messages: Prisma.JsonValue } | null,
   userMessage: string,
   result: ConciergeResult,
   promptConfig: Awaited<ReturnType<typeof getActivePrompt>>,
 ): Promise<void> {
-  const existing = await prisma.aiConversation.findFirst({
-    where: { session_id: sessionId },
-    orderBy: { created_at: "desc" },
-  });
   const priorMessages: Prisma.JsonArray = Array.isArray(existing?.messages)
     ? existing.messages
     : [];

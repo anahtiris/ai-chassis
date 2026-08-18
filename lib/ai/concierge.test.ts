@@ -19,7 +19,12 @@ vi.mock("@/lib/ai/generativeTools", () => ({
 }));
 vi.mock("@/lib/db/client", () => ({
   prisma: {
-    aiConversation: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    aiConversation: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -46,6 +51,7 @@ describe("getConciergeResponse", () => {
     vi.mocked(getKnowledgeProvider).mockReset();
     vi.mocked(getActivePrompt).mockReset();
     vi.mocked(prisma.aiConversation.findFirst).mockReset();
+    vi.mocked(prisma.aiConversation.findUnique).mockReset();
     vi.mocked(prisma.aiConversation.create).mockReset();
     vi.mocked(prisma.aiConversation.update).mockReset();
     vi.mocked(generativeToolHandlers.request_table).mockReset();
@@ -82,7 +88,7 @@ describe("getConciergeResponse", () => {
       expect.objectContaining({
         model: "fake-model",
         system: expect.stringContaining("You are Acme Corp support."),
-        prompt: "What do you sell?",
+        messages: [{ role: "user", content: "What do you sell?" }],
         temperature: 0.3,
         maxTokens: 300,
       }),
@@ -205,13 +211,15 @@ describe("getConciergeResponse", () => {
       text: "Second reply.",
       toolCalls: [],
     } as never);
-    vi.mocked(prisma.aiConversation.findFirst).mockResolvedValue({
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue({
       id: "c1",
       session_id: "session-3",
       messages: [
         { role: "user", content: "First message" },
         { role: "assistant", content: "First reply." },
       ],
+      summary: null,
+      summary_turns: 0,
       created_at: new Date(),
     } as never);
 
@@ -229,5 +237,44 @@ describe("getConciergeResponse", () => {
         ],
       },
     });
+  });
+
+  it("sends the current message as the final entry in messages", async () => {
+    vi.mocked(getActivePrompt).mockResolvedValue(null);
+    vi.mocked(getKnowledgeProvider).mockReturnValue({
+      getRelevantKnowledge: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue(
+      null as never,
+    );
+    vi.mocked(generateText).mockResolvedValue({
+      text: "hi",
+      toolCalls: [],
+    } as never);
+
+    await getConciergeResponse("session-4", "hello");
+
+    const call = vi.mocked(generateText).mock.calls[0][0];
+    expect(call.messages?.at(-1)).toEqual({ role: "user", content: "hello" });
+    expect(call.prompt).toBeUndefined();
+  });
+
+  it("reads the conversation row once per turn", async () => {
+    vi.mocked(getActivePrompt).mockResolvedValue(null);
+    vi.mocked(getKnowledgeProvider).mockReturnValue({
+      getRelevantKnowledge: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue(
+      null as never,
+    );
+    vi.mocked(generateText).mockResolvedValue({
+      text: "hi",
+      toolCalls: [],
+    } as never);
+
+    await getConciergeResponse("session-5", "hello");
+
+    expect(prisma.aiConversation.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.aiConversation.findFirst).not.toHaveBeenCalled();
   });
 });
