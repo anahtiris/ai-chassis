@@ -1325,6 +1325,17 @@ export interface AiConcierge {
         id?: string | null;
       }[]
     | null;
+  /**
+   * How much of the conversation the concierge remembers. 'None' reproduces the original stateless behavior.
+   */
+  memory?: {
+    strategy?: ('none' | 'window' | 'summary') | null;
+    keepRecentTurns?: number | null;
+    /**
+     * Approximate context budget, counted in characters (roughly four characters per token).
+     */
+    maxHistoryChars?: number | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1340,6 +1351,13 @@ export interface AiConciergeSelect<T extends boolean = true> {
         label?: T;
         sampleMessage?: T;
         id?: T;
+      };
+  memory?:
+    | T
+    | {
+        strategy?: T;
+        keepRecentTurns?: T;
+        maxHistoryChars?: T;
       };
   updatedAt?: T;
   createdAt?: T;

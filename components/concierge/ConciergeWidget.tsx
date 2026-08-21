@@ -21,7 +21,22 @@ export function ConciergeWidget({
 }: {
   suggestions: Suggestion[];
 }) {
-  const [sessionId] = useState(() => crypto.randomUUID());
+  // sessionStorage, deliberately not localStorage: conversation history on
+  // a public site is scoped to one browsing session, and a persistent id on
+  // a shared machine would hand one visitor's conversation to the next.
+  // Without this the id is regenerated on every mount and the server-side
+  // memory in lib/ai/memory/ never survives a reload.
+  //
+  // The lazy initializer also runs during SSR, where there is no window —
+  // fall back to a fresh id there and let the first client render take over.
+  const [sessionId] = useState(() => {
+    if (typeof window === "undefined") return crypto.randomUUID();
+    const stored = window.sessionStorage.getItem("concierge-session-id");
+    if (stored) return stored;
+    const created = crypto.randomUUID();
+    window.sessionStorage.setItem("concierge-session-id", created);
+    return created;
+  });
 
   async function* onSend(
     messages: ChatMessage[],

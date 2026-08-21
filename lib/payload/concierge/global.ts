@@ -49,6 +49,52 @@ export const AiConcierge: GlobalConfig = {
         initCollapsed: true,
       },
     },
+    // Read at request time by lib/ai/memory/settings.ts. Env vars
+    // (CHAT_MEMORY_*) act as fallbacks when a field here is unset, so a
+    // fresh fork boots before anyone opens this page — see
+    // docs/decisions.md's memory entry for the precedence rules.
+    {
+      name: "memory",
+      type: "group",
+      label: "Conversation memory",
+      admin: {
+        description:
+          "How much of the conversation the concierge remembers. 'None' reproduces the original stateless behavior.",
+      },
+      fields: [
+        {
+          name: "strategy",
+          type: "select",
+          defaultValue: "none",
+          options: [
+            { label: "None — only the current message", value: "none" },
+            { label: "Window — the most recent messages", value: "window" },
+            {
+              label: "Summary — roll older messages into a summary",
+              value: "summary",
+            },
+          ],
+        },
+        {
+          name: "keepRecentTurns",
+          type: "number",
+          defaultValue: 10,
+          label: "Messages kept verbatim",
+          min: 1,
+        },
+        {
+          name: "maxHistoryChars",
+          type: "number",
+          defaultValue: 8000,
+          label: "History character budget",
+          min: 500,
+          admin: {
+            description:
+              "Approximate context budget, counted in characters (roughly four characters per token).",
+          },
+        },
+      ],
+    },
   ],
   hooks: {
     afterChange: [revalidateAiConcierge],

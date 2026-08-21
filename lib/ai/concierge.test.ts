@@ -17,9 +17,25 @@ vi.mock("@/lib/ai/generativeTools", () => ({
   generativeToolHandlers: { request_table: vi.fn() },
   GENERATIVE_TOOL_GUIDANCE: "TOOL GUIDANCE",
 }));
+// getMemorySettings() reaches for Payload; without this every test in the
+// file would try to boot it. Defaults to "none", so the assertions about
+// prompt/model/temperature below are unaffected — the history tests
+// re-stub it per test.
+vi.mock("@/lib/ai/memory/settings", () => ({
+  getMemorySettings: vi.fn(async () => ({
+    strategy: "none",
+    maxHistoryChars: 8000,
+    keepRecentTurns: 10,
+  })),
+}));
 vi.mock("@/lib/db/client", () => ({
   prisma: {
-    aiConversation: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    aiConversation: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -33,6 +49,7 @@ import { getKnowledgeProvider } from "@/lib/knowledge/provider";
 import { getActivePrompt } from "@/lib/ai/promptRegistry";
 import { generativeToolHandlers } from "@/lib/ai/generativeTools";
 import { prisma } from "@/lib/db/client";
+import { getMemorySettings } from "@/lib/ai/memory/settings";
 import { getConciergeResponse } from "./concierge";
 
 describe("getConciergeResponse", () => {
@@ -46,6 +63,12 @@ describe("getConciergeResponse", () => {
     vi.mocked(getKnowledgeProvider).mockReset();
     vi.mocked(getActivePrompt).mockReset();
     vi.mocked(prisma.aiConversation.findFirst).mockReset();
+    vi.mocked(prisma.aiConversation.findUnique).mockReset();
+    vi.mocked(getMemorySettings).mockReset().mockResolvedValue({
+      strategy: "none",
+      maxHistoryChars: 8000,
+      keepRecentTurns: 10,
+    });
     vi.mocked(prisma.aiConversation.create).mockReset();
     vi.mocked(prisma.aiConversation.update).mockReset();
     vi.mocked(generativeToolHandlers.request_table).mockReset();
@@ -82,7 +105,7 @@ describe("getConciergeResponse", () => {
       expect.objectContaining({
         model: "fake-model",
         system: expect.stringContaining("You are Acme Corp support."),
-        prompt: "What do you sell?",
+        messages: [{ role: "user", content: "What do you sell?" }],
         temperature: 0.3,
         maxTokens: 300,
       }),
@@ -205,13 +228,15 @@ describe("getConciergeResponse", () => {
       text: "Second reply.",
       toolCalls: [],
     } as never);
-    vi.mocked(prisma.aiConversation.findFirst).mockResolvedValue({
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue({
       id: "c1",
       session_id: "session-3",
       messages: [
         { role: "user", content: "First message" },
         { role: "assistant", content: "First reply." },
       ],
+      summary: null,
+      summary_turns: 0,
       created_at: new Date(),
     } as never);
 
@@ -229,5 +254,105 @@ describe("getConciergeResponse", () => {
         ],
       },
     });
+  });
+
+  it("sends the current message as the final entry in messages", async () => {
+    vi.mocked(getActivePrompt).mockResolvedValue(null);
+    vi.mocked(getKnowledgeProvider).mockReturnValue({
+      getRelevantKnowledge: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue(
+      null as never,
+    );
+    vi.mocked(generateText).mockResolvedValue({
+      text: "hi",
+      toolCalls: [],
+    } as never);
+
+    await getConciergeResponse("session-4", "hello");
+
+    const call = vi.mocked(generateText).mock.calls[0][0];
+    expect(call.messages?.at(-1)).toEqual({ role: "user", content: "hello" });
+    expect(call.prompt).toBeUndefined();
+  });
+
+  it("reads the conversation row once per turn", async () => {
+    vi.mocked(getActivePrompt).mockResolvedValue(null);
+    vi.mocked(getKnowledgeProvider).mockReturnValue({
+      getRelevantKnowledge: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue(
+      null as never,
+    );
+    vi.mocked(generateText).mockResolvedValue({
+      text: "hi",
+      toolCalls: [],
+    } as never);
+
+    await getConciergeResponse("session-5", "hello");
+
+    expect(prisma.aiConversation.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.aiConversation.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("sends no history under the default none strategy", async () => {
+    vi.mocked(getActivePrompt).mockResolvedValue(null);
+    vi.mocked(getKnowledgeProvider).mockReturnValue({
+      getRelevantKnowledge: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue({
+      id: "c9",
+      session_id: "session-6",
+      messages: [
+        { role: "user", content: "Earlier question" },
+        { role: "assistant", content: "Earlier answer." },
+      ],
+      summary: null,
+      summary_turns: 0,
+    } as never);
+    vi.mocked(generateText).mockResolvedValue({
+      text: "hi",
+      toolCalls: [],
+    } as never);
+
+    await getConciergeResponse("session-6", "Follow-up");
+
+    const call = vi.mocked(generateText).mock.calls[0][0];
+    expect(call.messages).toEqual([{ role: "user", content: "Follow-up" }]);
+  });
+
+  it("replays prior turns when the window strategy is configured", async () => {
+    vi.mocked(getMemorySettings).mockResolvedValue({
+      strategy: "window",
+      maxHistoryChars: 8000,
+      keepRecentTurns: 10,
+    });
+    vi.mocked(getActivePrompt).mockResolvedValue(null);
+    vi.mocked(getKnowledgeProvider).mockReturnValue({
+      getRelevantKnowledge: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.mocked(prisma.aiConversation.findUnique).mockResolvedValue({
+      id: "c9",
+      session_id: "session-7",
+      messages: [
+        { role: "user", content: "Earlier question" },
+        { role: "assistant", content: "Earlier answer." },
+      ],
+      summary: null,
+      summary_turns: 0,
+    } as never);
+    vi.mocked(generateText).mockResolvedValue({
+      text: "hi",
+      toolCalls: [],
+    } as never);
+
+    await getConciergeResponse("session-7", "Follow-up");
+
+    const call = vi.mocked(generateText).mock.calls[0][0];
+    expect(call.messages).toEqual([
+      { role: "user", content: "Earlier question" },
+      { role: "assistant", content: "Earlier answer." },
+      { role: "user", content: "Follow-up" },
+    ]);
   });
 });
