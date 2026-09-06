@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { GenerativeChat, defaultRenderers } from "generative-ui-kit";
 import type {
   ChatMessage,
@@ -21,36 +20,22 @@ export function ConciergeWidget({
 }: {
   suggestions: Suggestion[];
 }) {
-  // sessionStorage, deliberately not localStorage: conversation history on
-  // a public site is scoped to one browsing session, and a persistent id on
-  // a shared machine would hand one visitor's conversation to the next.
-  // Without this the id is regenerated on every mount and the server-side
-  // memory in lib/ai/memory/ never survives a reload.
-  //
-  // The lazy initializer also runs during SSR, where there is no window —
-  // fall back to a fresh id there and let the first client render take over.
-  const [sessionId] = useState(() => {
-    if (typeof window === "undefined") return crypto.randomUUID();
-    const stored = window.sessionStorage.getItem("concierge-session-id");
-    if (stored) return stored;
-    const created = crypto.randomUUID();
-    window.sessionStorage.setItem("concierge-session-id", created);
-    return created;
-  });
-
   async function* onSend(
     messages: ChatMessage[],
   ): AsyncIterable<ChatStreamEvent> {
     const lastUserMessage = [...messages]
       .reverse()
       .find((m) => m.role === "user");
+    // No session id is sent or held here. The route issues one as a signed
+    // httpOnly cookie (lib/ai/sessionCookie.ts) that this code cannot read,
+    // which is the point — the previous sessionStorage id was readable by
+    // every script on the page. `credentials` is load-bearing rather than
+    // decorative: the cookie is what identifies the conversation.
     const res = await fetch("/api/concierge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        message: lastUserMessage?.content ?? "",
-      }),
+      credentials: "same-origin",
+      body: JSON.stringify({ message: lastUserMessage?.content ?? "" }),
     });
     if (!res.ok) throw new Error(`Concierge request failed (${res.status})`);
     const data = (await res.json()) as
