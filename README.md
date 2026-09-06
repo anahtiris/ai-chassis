@@ -143,7 +143,14 @@ generalize arbitrary business-entity CRUD.
   the knowledge provider finds nothing for (set `WEB_SEARCH_PROVIDER` and
   credentials, unset by default — see `.env.example`). Also supports
   generative-ui-kit tool-calling (table/dashboard/form/question/diagram).
-  Tool-calling reliability depends on the underlying model.
+  Tool-calling reliability depends on the underlying model. Visitors stay
+  anonymous — there is no login on the public site — but the conversation a
+  request may touch is decided by the server, not the caller: `/api/concierge`
+  issues an HMAC-signed `httpOnly` session cookie (`lib/ai/sessionCookie.ts`,
+  signed with `AUTH_SECRET`) and ignores any `sessionId` in the request body.
+  An absent, forged, or stale-secret cookie starts a fresh conversation rather
+  than resuming an existing one, so rotating `AUTH_SECRET` orphans in-flight
+  conversations by design.
 - **AI content generation:** `/admin/ai/content` — give it a topic, it
   generates a draft blog post (title, meta description, headed sections) via
   `lib/ai/contentGenerate.ts` and creates it as a **draft** Post for review
