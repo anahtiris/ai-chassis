@@ -19,6 +19,10 @@ import {
   CONCIERGE_SESSION_COOKIE,
   issueSessionCookie,
 } from "@/lib/ai/sessionCookie";
+import {
+  DEFAULT_MAX_MESSAGE_CHARS,
+  getMaxBodyBytes,
+} from "@/lib/ai/messageLimits";
 import { POST } from "./route";
 
 beforeEach(() => {
@@ -31,12 +35,16 @@ afterEach(() => {
 });
 
 function makeRequest(body: unknown, cookie?: string) {
+  const serialized = JSON.stringify(body);
+  const headers = new Headers({
+    "content-length": String(Buffer.byteLength(serialized)),
+  });
+  if (cookie) headers.set("cookie", `${CONCIERGE_SESSION_COOKIE}=${cookie}`);
+
   return new NextRequest("http://localhost/api/concierge", {
     method: "POST",
-    body: JSON.stringify(body),
-    headers: cookie
-      ? { cookie: `${CONCIERGE_SESSION_COOKIE}=${cookie}` }
-      : undefined,
+    body: serialized,
+    headers,
   });
 }
 
@@ -191,5 +199,68 @@ describe("POST /api/concierge session identity", () => {
 
     expect(response.status).toBe(500);
     expect(response.cookies.get(CONCIERGE_SESSION_COOKIE)).toBeDefined();
+  });
+});
+
+describe("POST /api/concierge size limits", () => {
+  beforeEach(() => {
+    vi.mocked(getConciergeResponse).mockResolvedValue({
+      type: "text",
+      text: "Hello!",
+    });
+  });
+
+  it("accepts a message exactly at the cap", async () => {
+    const response = await POST(
+      makeRequest({ message: "a".repeat(DEFAULT_MAX_MESSAGE_CHARS) }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects a message one character over the cap", async () => {
+    const response = await POST(
+      makeRequest({ message: "a".repeat(DEFAULT_MAX_MESSAGE_CHARS + 1) }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "message is too long",
+      maxChars: DEFAULT_MAX_MESSAGE_CHARS,
+    });
+    expect(getConciergeResponse).not.toHaveBeenCalled();
+  });
+
+  it("honours a configured cap", async () => {
+    vi.stubEnv("CONCIERGE_MAX_MESSAGE_CHARS", "10");
+
+    const response = await POST(makeRequest({ message: "a".repeat(11) }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "message is too long",
+      maxChars: 10,
+    });
+  });
+
+  it("rejects an oversized body before parsing it", async () => {
+    const request = new NextRequest("http://localhost/api/concierge", {
+      method: "POST",
+      body: JSON.stringify({ message: "Hi" }),
+      headers: { "content-length": String(getMaxBodyBytes() + 1) },
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
+    expect(getConciergeResponse).not.toHaveBeenCalled();
+  });
+
+  it("does not mint a session for a request it refuses on size", async () => {
+    const response = await POST(
+      makeRequest({ message: "a".repeat(DEFAULT_MAX_MESSAGE_CHARS + 1) }),
+    );
+
+    expect(response.cookies.get(CONCIERGE_SESSION_COOKIE)).toBeUndefined();
   });
 });

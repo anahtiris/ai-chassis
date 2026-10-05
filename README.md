@@ -224,6 +224,30 @@ users predating the `UserIdentity` table are linked automatically on their
 next sign-in. Completing OAuth still never auto-provisions a new account —
 the `User` row must already exist, seeded or created in `/admin/users`.
 
+### Request size limits
+
+One concierge message is capped at 2000 characters, overridable per
+environment with `CONCIERGE_MAX_MESSAGE_CHARS`. The cap exists to bound abuse,
+not to tune answers — a long paragraph is around 800 characters, so a real
+visitor should never meet it.
+
+It is counted in characters, not tokens: `AI_PROVIDER` decides the tokenizer,
+so an accurate token count would be both expensive and wrong the moment the
+provider changes, and characters are already the unit conversation memory
+budgets history in. Weigh two things before raising it. Non-Latin scripts cost
+far more tokens per character (2000 characters is roughly 500 tokens of
+English but closer to 1500-2000 of Thai), and the **Window** memory strategy
+keeps `keepRecentTurns` messages verbatim with no budget of its own, so this
+cap effectively bounds history at about half that turn count multiplied by it.
+The ceiling that actually bites is usually the model's context window, which
+on the default local setup is small — `lib/ai/provider.ts` does not set
+Ollama's `num_ctx`.
+
+A coarser bound derived from the same setting rejects oversized request bodies
+on `content-length` before they are parsed, since App Router route handlers
+have no default body size limit. A body sent without a `content-length`
+(chunked) still reaches the parser.
+
 ### Conversation memory (opt-in)
 
 By default the concierge is stateless: it sees only the current message.

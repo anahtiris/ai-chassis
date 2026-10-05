@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConciergeResponse } from "@/lib/ai/concierge";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getMaxBodyBytes, getMaxMessageChars } from "@/lib/ai/messageLimits";
 import {
   CONCIERGE_SESSION_COOKIE,
   SESSION_COOKIE_OPTIONS,
@@ -25,11 +26,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Before parsing, not after: route handlers have no default body size
+    // limit, so request.json() would buffer whatever was sent. A body without
+    // a content-length (a chunked upload) still gets through to the parser —
+    // closing that would mean reading the stream with a byte counter instead,
+    // which this does not do. See lib/ai/messageLimits.ts.
+    const declaredLength = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > getMaxBodyBytes()) {
+      return NextResponse.json(
+        { error: "Request body is too large" },
+        { status: 413 },
+      );
+    }
+
     const body = (await request.json()) as { message?: unknown };
     const { message } = body;
 
     if (typeof message !== "string" || !message.trim()) {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
+    }
+
+    // Checked before a session is minted, so a refused request leaves no row
+    // and no cookie behind.
+    const maxChars = getMaxMessageChars();
+    if (message.length > maxChars) {
+      return NextResponse.json(
+        { error: "message is too long", maxChars },
+        { status: 400 },
+      );
     }
 
     // Session identity comes from the signed httpOnly cookie and nowhere else.
